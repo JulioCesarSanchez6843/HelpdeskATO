@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
@@ -162,11 +162,49 @@ def eliminar(request, clave, pk):
 
 @superadmin_required
 def lista_sucursales(request):
+    q = request.GET.get("q", "").strip()
+    estado = request.GET.get("estado", "")
+    usuarios = request.GET.get("usuarios", "")
+    tickets = request.GET.get("tickets", "")
+
     sucursales = Sucursal.objects.defer("logo").annotate(
         n_usuarios=Count("usuarios", distinct=True),
         n_tickets=Count("tickets", distinct=True),
     )
-    return render(request, "catalog/sucursales.html", {"sucursales": sucursales})
+
+    if q:
+        sucursales = sucursales.filter(
+            Q(nombre__icontains=q) | Q(codigo_distribuidor__icontains=q)
+        )
+
+    if estado == "activa":
+        sucursales = sucursales.filter(activa=True)
+    elif estado == "inactiva":
+        sucursales = sucursales.filter(activa=False)
+    else:
+        estado = ""
+
+    if usuarios == "con":
+        sucursales = sucursales.filter(n_usuarios__gt=0)
+    elif usuarios == "sin":
+        sucursales = sucursales.filter(n_usuarios=0)
+    else:
+        usuarios = ""
+
+    if tickets == "con":
+        sucursales = sucursales.filter(n_tickets__gt=0)
+    elif tickets == "sin":
+        sucursales = sucursales.filter(n_tickets=0)
+    else:
+        tickets = ""
+
+    return render(request, "catalog/sucursales.html", {
+        "sucursales": sucursales,
+        "q": q,
+        "estado_sel": estado,
+        "usuarios_sel": usuarios,
+        "tickets_sel": tickets,
+    })
 
 
 @superadmin_required

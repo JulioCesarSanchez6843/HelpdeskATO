@@ -21,7 +21,7 @@
                 <td class="text-end">{{ f.cerrados }}</td>
                 <td class="text-end">{{ f.porcentaje }}%</td>
                 <td class="text-end">{% if f.horas is not None %}{{ f.horas }} h{% else %}—{% endif %}</td>
-            </tr>
+                <td class="text-end">{% if f.horas_respuesta is not None %}{{ f.horas_respuesta }} h{% else %}—{% endif %}</td>
         {% endfor %}
         </tbody>
     </table>
