@@ -90,6 +90,8 @@ class Ticket(models.Model):
     )
     prioridad_en = models.DateTimeField(null=True, blank=True)
     sla_vence_en = models.DateTimeField(null=True, blank=True)
+    sla_aviso_en = models.DateTimeField(null=True, blank=True)
+    sla_vencido_aviso_en = models.DateTimeField(null=True, blank=True) 
 
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -114,6 +116,8 @@ class Ticket(models.Model):
         return f"Ticket #{self.pk} - {self.titulo}"
 
     def recalcular_sla(self):
+        self.sla_aviso_en = None
+        self.sla_vencido_aviso_en = None
         if not self.prioridad:
             self.prioridad_en = None
             self.sla_vence_en = None
@@ -127,6 +131,27 @@ class Ticket(models.Model):
         if self.sla_vence_en is None:
             return False
         return (self.resuelto_en or timezone.now()) > self.sla_vence_en
+
+    @property
+    def sla_aviso_desde(self):
+        if self.sla_vence_en is None or self.prioridad_en is None:
+            return None
+        total = self.sla_vence_en - self.prioridad_en
+        return self.prioridad_en + total * settings.SLA_AVISO_PORCENTAJE / 100
+
+    @property
+    def estado_sla(self):
+        if self.sla_vence_en is None:
+            return "Sin prioridad"
+        if self.resuelto_en is not None:
+            return "Cumplido" if self.resuelto_en <= self.sla_vence_en else "Incumplido"
+        ahora = timezone.now()
+        if ahora > self.sla_vence_en:
+            return "Vencido"
+        desde = self.sla_aviso_desde
+        if desde is not None and ahora >= desde:
+            return "Por vencer"
+        return "En tiempo"
 
     @property
     def esperando_confirmacion(self):
@@ -148,6 +173,13 @@ class AdjuntoTicket(models.Model):
     ticket = models.ForeignKey(
         Ticket,
         on_delete=models.CASCADE,
+        related_name="adjuntos",
+    )
+    comentario = models.ForeignKey(
+        "tickets.Comentario",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="adjuntos",
     )
     nombre = models.CharField(max_length=150)
@@ -225,6 +257,8 @@ class Notificacion(models.Model):
         COMENTARIO = "COMENTARIO", "Nuevo comentario"
         ESPERA_MATERIALES = "ESPERA_MATERIALES", "En espera de materiales"
         TICKET_ESCALADO = "TICKET_ESCALADO", "Ticket escalado"
+        SLA_POR_VENCER = "SLA_POR_VENCER", "SLA por vencer"
+        SLA_VENCIDO = "SLA_VENCIDO", "SLA vencido"
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,

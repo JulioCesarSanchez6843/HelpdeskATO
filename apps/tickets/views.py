@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 from django.contrib.auth import login
@@ -16,6 +17,7 @@ from apps.catalog.models import Area, Categoria, Sucursal
 
 from . import acceso, services
 from .forms import (
+    AdjuntosComentarioForm,
     AsignarTicketForm,
     EscalarTicketForm,
     TicketForm,
@@ -209,8 +211,11 @@ def detalle_ticket(request, pk):
 
             return redirect("detalle_ticket", pk=pk)
 
-        comentarios = ticket.comentarios.select_related("autor")
-    comentarios = ticket.comentarios.select_related("autor")
+    comentarios = ticket.comentarios.select_related("autor").prefetch_related(
+        Prefetch("adjuntos", queryset=AdjuntoTicket.objects.defer("contenido"))
+    )
+    if not es_personal:
+        comentarios = comentarios.filter(interno=False)
 
     historial = ticket.historial.select_related("usuario")
     if not es_personal:
@@ -226,7 +231,9 @@ def detalle_ticket(request, pk):
             "puede_reabrir": ticket.dentro_de_plazo_reapertura,
             "reabrible_hasta": ticket.reabrible_hasta,
             "historial": historial,
-            "adjuntos": ticket.adjuntos.defer("contenido"),
+            "adjuntos": ticket.adjuntos.filter(comentario__isnull=True).defer(
+                "contenido"
+            ),
             "form_gestion": form_gestion,
             "puede_responder_cierre": (
                 ticket.esperando_confirmacion
@@ -260,14 +267,30 @@ def comentar_ticket(request, pk):
     contenido = request.POST.get("contenido", "").strip()[:2000]
     interno = request.user.es_personal and request.POST.get("interno") == "on"
 
+    formulario = AdjuntosComentarioForm(request.POST, request.FILES)
+
     if ticket.estado == Ticket.Estado.CERRADO:
         messages.error(request, "El ticket está cerrado y ya no admite mensajes.")
     elif len(contenido) < 2:
         messages.error(request, "Escribe un mensaje.")
+    elif not formulario.is_valid():
+        for errores in formulario.errors.values():
+            for error in errores:
+                messages.error(request, error)
     else:
-        with transaction.atomic():
-            services.agregar_comentario(ticket, request.user, contenido, interno)
-        messages.success(request, "Mensaje enviado.")
+        try:
+            with transaction.atomic():
+                services.agregar_comentario(
+                    ticket,
+                    request.user,
+                    contenido,
+                    interno,
+                    formulario.cleaned_data["imagenes"],
+                )
+        except ImagenInvalida as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, "Mensaje enviado.")
 
     return redirect("detalle_ticket", pk=pk)
 
@@ -311,7 +334,10 @@ def nuevo_ticket(request):
 
 @login_required
 def ver_adjunto(request, pk):
-    adjunto = get_object_or_404(AdjuntoTicket, pk=pk)
+    adjuntos = AdjuntoTicket.objects.all()
+    if not request.user.es_personal:
+        adjuntos = adjuntos.exclude(comentario__interno=True)
+    adjunto = get_object_or_404(adjuntos, pk=pk)
 
     get_object_or_404(_tickets_visibles(request.user), pk=adjunto.ticket_id)
 

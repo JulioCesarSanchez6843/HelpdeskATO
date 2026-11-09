@@ -19,6 +19,15 @@
                         <small class="text-muted text-nowrap">{{ comentario.creado_en|date:"d/m/Y H:i" }}</small>
                     </div>
                     <div class="small">{{ comentario.contenido|linebreaksbr }}</div>
+                    {% if comentario.adjuntos.all %}
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            {% for adjunto in comentario.adjuntos.all %}
+                                <a href="{% url 'ver_adjunto' adjunto.pk %}" target="_blank" rel="noopener">
+                                    <img src="{% url 'ver_adjunto' adjunto.pk %}" alt="{{ adjunto.nombre }}" loading="lazy" style="width: 90px; height: 90px; object-fit: cover; border-radius: 10px;">
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
             {% empty %}
                 <p class="text-muted small mb-0">Aún no hay mensajes.</p>
@@ -26,7 +35,7 @@
         </div>
 
         {% if puede_comentar %}
-            <form method="post" action="{% url 'comentar_ticket' ticket.pk %}" class="mt-3">
+            <form method="post" action="{% url 'comentar_ticket' ticket.pk %}" class="mt-3" enctype="multipart/form-data"></form>
                 {% csrf_token %}
                 <textarea
                     name="contenido"
@@ -36,6 +45,14 @@
                     required
                     placeholder="Escribe un mensaje..."
                 ></textarea>
+                <input
+                    type="file"
+                    name="imagenes"
+                    class="form-control form-control-sm mb-1"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    multiple
+                >
+                <div class="form-text mb-2">Opcional: imágenes JPG o PNG.</div>
                 {% if user.es_personal %}
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" name="interno" id="interno">

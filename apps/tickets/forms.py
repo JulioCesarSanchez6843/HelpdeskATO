@@ -61,6 +61,9 @@ class MultipleImageField(forms.ImageField):
 
         return limpios
 
+class AdjuntosComentarioForm(forms.Form):
+    imagenes = MultipleImageField(required=False)
+
 class TicketForm(BootstrapFormMixin, forms.ModelForm):
     imagenes = MultipleImageField(
         label="Imágenes o fotos (opcional)",

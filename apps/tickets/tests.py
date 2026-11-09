@@ -327,12 +327,14 @@ class GestionTicketsTests(BaseTicketsTest):
     def test_en_proceso_avisa_al_usuario_por_correo_y_en_la_app(self):
         ticket = self.crear_ticket(autor=self.u1)
         self.entrar(self.admin)
-        r = self.gestionar(ticket, estado="EN_PROCESO")
+        r = self.gestionar(ticket, estado="EN_PROCESO", prioridad="MEDIA")
         self.assertEqual(r.status_code, 302)
 
         ticket.refresh_from_db()
         self.assertEqual(ticket.estado, Ticket.Estado.EN_PROCESO)
-        self.assertEqual(ticket.historial.get().tipo, Historial.Tipo.CAMBIO_ESTADO)
+        self.assertEqual(
+            ticket.historial.filter(tipo=Historial.Tipo.CAMBIO_ESTADO).count(), 1
+        )
 
         self.assertEqual(self.destinatarios(), ["u1@t.com"])
         self.assertIn("En proceso", mail.outbox[0].subject)
@@ -360,7 +362,7 @@ class GestionTicketsTests(BaseTicketsTest):
     def test_reabrir_limpia_resolucion_y_nota(self):
         ticket = self.crear_ticket(autor=self.u1)
         self.resolver(ticket)
-        self.gestionar(ticket, estado="EN_PROCESO")
+        self.gestionar(ticket, estado="EN_PROCESO", prioridad="MEDIA")
         ticket.refresh_from_db()
         self.assertEqual(ticket.estado, Ticket.Estado.EN_PROCESO)
         self.assertIsNone(ticket.resuelto_en)
@@ -374,7 +376,7 @@ class GestionTicketsTests(BaseTicketsTest):
         self.entrar(self.admin)
         r = self.client.get(reverse("detalle_ticket", args=[ticket.pk]))
         self.assertIn("CERRADO", [v for v, _ in r.context["form_gestion"].fields["estado"].choices])
-        self.gestionar(ticket, estado="EN_PROCESO")
+        self.gestionar(ticket, estado="EN_PROCESO", prioridad="MEDIA")
         ticket.refresh_from_db()
         self.assertEqual(ticket.estado, Ticket.Estado.EN_PROCESO)
         self.assertIsNone(ticket.cerrado_en)
@@ -481,8 +483,13 @@ class ConfirmacionPorCorreoTests(BaseTicketsTest):
     def test_enlace_viejo_no_sirve_si_el_ticket_se_reabrio_y_se_resolvio_otra_vez(self):
         ticket, url_vieja = self.preparar()
         self.entrar(self.admin)
-        self.gestionar(ticket, estado="EN_PROCESO")
-        self.gestionar(ticket, estado="POR_CONFIRMAR", nota_resolucion="Ahora sí")
+        self.gestionar(ticket, estado="EN_PROCESO", prioridad="MEDIA")
+        self.gestionar(
+            ticket,
+            estado="POR_CONFIRMAR",
+            nota_resolucion="Ahora sí",
+            prioridad="MEDIA",
+        )
         self.client.logout()
         self.assertEqual(self.client.get(url_vieja).status_code, 400)
         self.assertEqual(self.client.get(self.url_del_correo_ultimo()).status_code, 200)

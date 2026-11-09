@@ -3,6 +3,9 @@
 {{ autor.nombre }} escribió en el ticket #{{ ticket.pk }}: {{ ticket.titulo }}
 
 {{ comentario.contenido }}
+{% if num_adjuntos %}
+(Incluye imágenes adjuntas. Míralas en el ticket.)
+{% endif %}
 
 Responde aquí:
 {{ url_ticket }}

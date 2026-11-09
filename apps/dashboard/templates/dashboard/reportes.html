@@ -44,12 +44,12 @@
         </button>
         <div class="collapse" id="panelExcel">
             <form method="get" action="{% url 'exportar_resueltos' %}" class="card card-body shadow-sm mt-2">
-                <label class="form-label small mb-1" for="exp_desde">Cierre desde</label>
+                <label class="form-label small mb-1" for="exp_desde">Desde</label>
                 <input type="date" class="form-control form-control-sm mb-2" id="exp_desde" name="desde">
-                <label class="form-label small mb-1" for="exp_hasta">Cierre hasta</label>
+                <label class="form-label small mb-1" for="exp_hasta">Hasta</label>
                 <input type="date" class="form-control form-control-sm mb-2" id="exp_hasta" name="hasta">
                 <button type="submit" class="btn btn-outline-success btn-sm w-100">Descargar</button>
-                <small class="text-muted mt-2">Sin fechas descarga todos los tickets cerrados.</small>
+                <small class="text-muted mt-2">Resueltos: por fecha de cierre. Las demás hojas: por fecha de creación. Sin fechas descarga todo.</small>
             </form>
         </div>
     </div>

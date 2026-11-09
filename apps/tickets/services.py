@@ -129,11 +129,12 @@ def poner_en_proceso(ticket, admin):
     registrar_gestion(ticket, admin, antes)
 
 
-def guardar_adjuntos(ticket, archivos, autor):
+def guardar_adjuntos(ticket, archivos, autor, comentario=None):
     for archivo in archivos:
         nombre, tipo, contenido = imagenes.procesar(archivo)
         AdjuntoTicket.objects.create(
             ticket=ticket,
+            comentario=comentario,
             nombre=nombre,
             tipo_contenido=tipo,
             contenido=contenido,
@@ -664,10 +665,12 @@ def asignar_ticket(ticket, actor, destino):
             actor,
         )
 
-def agregar_comentario(ticket, autor, contenido, interno=False):
+def agregar_comentario(ticket, autor, contenido, interno=False, archivos=()):
     comentario = Comentario.objects.create(
         ticket=ticket, autor=autor, contenido=contenido, interno=interno
     )
+    guardar_adjuntos(ticket, archivos, autor, comentario)
+    num_adjuntos = len(archivos)
     if not interno:
         _marcar_primera_respuesta(ticket, autor)
     registrar_evento(
@@ -702,7 +705,12 @@ def agregar_comentario(ticket, autor, contenido, interno=False):
                 _sin(destinatarios, autor),
                 f"Nuevo mensaje en el ticket #{ticket.pk}",
                 "nuevo_comentario",
-                _contexto(ticket, comentario=comentario, autor=autor),
+                _contexto(
+                    ticket,
+                    comentario=comentario,
+                    autor=autor,
+                    num_adjuntos=num_adjuntos,
+                ),
                 contexto_usuario=lambda destinatario: {"destinatario": destinatario},
             )
         )
@@ -775,10 +783,67 @@ def aplicar_prioridad(ticket, actor, prioridad):
         return
     ticket.prioridad = prioridad
     ticket.recalcular_sla()
-    ticket.save(update_fields=["prioridad", "prioridad_en", "sla_vence_en"])
+    ticket.save(
+        update_fields=[
+            "prioridad",
+            "prioridad_en",
+            "sla_vence_en",
+            "sla_aviso_en",
+            "sla_vencido_aviso_en",
+        ]
+    )
     Historial.objects.create(
         ticket=ticket,
         usuario=actor,
         tipo=Historial.Tipo.PRIORIDAD,
         contenido=f"Prioridad establecida en «{ticket.get_prioridad_display()}».",
+    )
+
+def _destinatarios_sla(ticket, vencido):
+    destinatarios = {}
+    asignado = ticket.asignado_a
+    if asignado is not None and asignado.activo:
+        destinatarios[asignado.pk] = asignado
+    if asignado is None:
+        for usuario in _personal_activo(ticket):
+            destinatarios[usuario.pk] = usuario
+    if vencido:
+        for usuario in _admins_activos(ticket):
+            destinatarios[usuario.pk] = usuario
+    return list(destinatarios.values())
+
+
+def avisar_sla(ticket, vencido):
+    if vencido:
+        campo = "sla_vencido_aviso_en"
+        tipo = Notificacion.Tipo.SLA_VENCIDO
+        mensaje = f"El ticket #{ticket.pk} superó su tiempo de atención (SLA)."
+        asunto = f"Ticket #{ticket.pk}: SLA vencido"
+        plantilla = "sla_vencido"
+    else:
+        campo = "sla_aviso_en"
+        tipo = Notificacion.Tipo.SLA_POR_VENCER
+        limite = timezone.localtime(ticket.sla_vence_en).strftime("%d/%m/%Y %H:%M")
+        mensaje = f"El ticket #{ticket.pk} vence su SLA el {limite}."
+        asunto = f"Ticket #{ticket.pk}: el SLA está por vencer"
+        plantilla = "sla_por_vencer"
+
+    setattr(ticket, campo, timezone.now())
+    ticket.save(update_fields=[campo])
+
+    destinatarios = _destinatarios_sla(ticket, vencido)
+    Notificacion.objects.bulk_create(
+        [
+            Notificacion(usuario=usuario, ticket=ticket, tipo=tipo, mensaje=mensaje)
+            for usuario in destinatarios
+        ]
+    )
+    emails.enviar_tras_commit(
+        emails.construir(
+            destinatarios,
+            asunto,
+            plantilla,
+            _contexto(ticket),
+            contexto_usuario=lambda destinatario: {"destinatario": destinatario},
+        )
     )

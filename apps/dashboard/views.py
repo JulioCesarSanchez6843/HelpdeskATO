@@ -239,6 +239,246 @@ def _estilizar_encabezado(hoja, fila, columnas):
         celda.fill = relleno
         celda.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+FORMATO_FECHA = "dd/mm/yyyy hh:mm"
+ESTADOS_PENDIENTES = (
+    Ticket.Estado.ABIERTO,
+    Ticket.Estado.EN_PROCESO,
+    Ticket.Estado.EN_ESPERA,
+)
+
+
+def _horas_entre(inicio, fin):
+    if not inicio or not fin:
+        return None
+    return round((fin - inicio).total_seconds() / 3600, 1)
+
+
+def _hoja_tabla(wb, titulo, encabezados, filas, anchos, fechas=(), envolver=()):
+    hoja = wb.create_sheet(titulo)
+    hoja.append(encabezados)
+    _estilizar_encabezado(hoja, 1, len(encabezados))
+    for numero, valores in enumerate(filas, start=2):
+        for col, valor in enumerate(valores, start=1):
+            celda = _escribir(
+                hoja, numero, col, valor, FORMATO_FECHA if col in fechas else None
+            )
+            celda.alignment = Alignment(vertical="top", wrap_text=col in envolver)
+    for i, ancho in enumerate(anchos, start=1):
+        hoja.column_dimensions[get_column_letter(i)].width = ancho
+    hoja.row_dimensions[1].height = 32
+    hoja.freeze_panes = "A2"
+    if hoja.max_row > 1:
+        hoja.auto_filter.ref = hoja.dimensions
+    return hoja
+
+
+def _filas_resumen(grupos):
+    return [
+        [g["nombre"], g["total"], g["pendientes"], g["cerrados"],
+         g["porcentaje"], g["horas"], g["horas_respuesta"]]
+        for g in grupos
+    ]
+
+
+ENCABEZADOS_RESUMEN = [
+    "Nombre", "Total", "Pendientes", "Cerrados", "% cerrados",
+    "Horas promedio de resolución", "Horas promedio de primera respuesta",
+]
+ANCHOS_RESUMEN = [30, 10, 12, 10, 12, 20, 22]
+
+
+def _agregar_hojas(wb, request, desde, hasta):
+    ahora = timezone.now()
+    base = _tickets_alcance(request)
+    if desde:
+        base = base.filter(creado_en__date__gte=desde)
+    if hasta:
+        base = base.filter(creado_en__date__lte=hasta)
+    detalle = base.select_related(
+        "area", "categoria", "sucursal", "creado_por", "asignado_a", "resuelto_por"
+    )
+
+    sin_resolver = detalle.filter(estado__in=ESTADOS_PENDIENTES).order_by(
+        "sla_vence_en", "creado_en"
+    )
+    filas = [
+        [
+            t.pk, t.titulo, t.get_estado_display(),
+            t.get_prioridad_display() or "Sin definir",
+            t.categoria.nombre if t.categoria else "Sin categoría",
+            t.area.nombre if t.area else "Sin área",
+            t.sucursal.nombre if t.sucursal else "Sin sucursal",
+            t.creado_por.nombre,
+            t.asignado_a.nombre if t.asignado_a else "Sin asignar",
+            _local(t.creado_en),
+            round((ahora - t.creado_en).total_seconds() / 86400, 1),
+            _local(t.sla_vence_en), t.estado_sla,
+            "Sí" if t.escalado_en else "No",
+        ]
+        for t in sin_resolver
+    ]
+    _hoja_tabla(
+        wb, "Sin resolver",
+        ["ID", "Título", "Estado", "Prioridad", "Categoría", "Área", "Sucursal",
+         "Solicitante", "Asignado a", "Fecha de creación", "Días abierto",
+         "SLA vence", "Estado del SLA", "Escalado"],
+        filas, [8, 34, 20, 12, 18, 20, 18, 24, 24, 18, 12, 18, 14, 10],
+        fechas=(10, 12), envolver=(2,),
+    )
+
+    por_confirmar = detalle.filter(estado=Ticket.Estado.POR_CONFIRMAR).order_by(
+        "resuelto_en"
+    )
+    filas = [
+        [
+            t.pk, t.titulo, t.creado_por.nombre, t.creado_por.correo,
+            t.resuelto_por.nombre if t.resuelto_por else "",
+            _local(t.resuelto_en),
+            round((ahora - t.resuelto_en).total_seconds() / 86400, 1)
+            if t.resuelto_en else None,
+            "Sí" if t.recordatorio_cierre_en else "No",
+            t.nota_resolucion,
+        ]
+        for t in por_confirmar
+    ]
+    _hoja_tabla(
+        wb, "Por confirmar",
+        ["ID", "Título", "Solicitante", "Correo del solicitante", "Resuelto por",
+         "Fecha de resolución", "Días esperando confirmación",
+         "Recordatorio enviado", "Nota de resolución"],
+        filas, [8, 34, 24, 28, 22, 18, 16, 14, 50],
+        fechas=(6,), envolver=(2, 9),
+    )
+
+    con_sla = list(detalle.filter(sla_vence_en__isnull=False).order_by("sla_vence_en"))
+    filas = []
+    for t in con_sla:
+        fin = t.resuelto_en or ahora
+        retraso = _horas_entre(t.sla_vence_en, fin)
+        filas.append([
+            t.pk, t.titulo, t.get_prioridad_display(), t.get_estado_display(),
+            t.asignado_a.nombre if t.asignado_a else "Sin asignar",
+            _local(t.prioridad_en), _local(t.sla_vence_en), _local(t.resuelto_en),
+            t.estado_sla, max(retraso, 0) if retraso is not None else 0,
+        ])
+    _hoja_tabla(
+        wb, "SLA",
+        ["ID", "Título", "Prioridad", "Estado", "Asignado a",
+         "Prioridad definida el", "SLA vence", "Fecha de resolución",
+         "Estado del SLA", "Horas de retraso"],
+        filas, [8, 34, 12, 20, 24, 18, 18, 18, 14, 14],
+        fechas=(6, 7, 8), envolver=(2,),
+    )
+
+    _hoja_tabla(
+        wb, "Por categoría", ENCABEZADOS_RESUMEN,
+        _filas_resumen(_resumen_por(base, "categoria__nombre", "Sin categoría")),
+        ANCHOS_RESUMEN,
+    )
+    _hoja_tabla(
+        wb, "Por área", ENCABEZADOS_RESUMEN,
+        _filas_resumen(_resumen_por(base, "area__nombre", "Sin área")),
+        ANCHOS_RESUMEN,
+    )
+    if request.user.es_superadmin:
+        _hoja_tabla(
+            wb, "Por sucursal", ENCABEZADOS_RESUMEN,
+            _filas_resumen(_resumen_por(base, "sucursal__nombre", "Sin sucursal")),
+            ANCHOS_RESUMEN,
+        )
+
+    personas = {}
+    resueltos = (
+        base.filter(
+            resuelto_por__isnull=False,
+            estado__in=[Ticket.Estado.POR_CONFIRMAR, Ticket.Estado.CERRADO],
+        )
+        .order_by()
+        .values("resuelto_por", "resuelto_por__nombre")
+        .annotate(
+            resueltos=Count("id"),
+            cerrados=Count("id", filter=Q(estado=Ticket.Estado.CERRADO)),
+            promedio=Avg(DURACION_RESOLUCION, filter=FILTRO_CON_RESOLUCION),
+        )
+    )
+    for fila in resueltos:
+        personas[fila["resuelto_por"]] = {
+            "nombre": fila["resuelto_por__nombre"],
+            "resueltos": fila["resueltos"],
+            "cerrados": fila["cerrados"],
+            "horas": _horas(fila["promedio"]),
+            "pendientes": 0,
+        }
+    pendientes = (
+        base.filter(estado__in=ESTADOS_PENDIENTES, asignado_a__isnull=False)
+        .order_by()
+        .values("asignado_a", "asignado_a__nombre")
+        .annotate(total=Count("id"))
+    )
+    for fila in pendientes:
+        dato = personas.setdefault(
+            fila["asignado_a"],
+            {"nombre": fila["asignado_a__nombre"], "resueltos": 0,
+             "cerrados": 0, "horas": None, "pendientes": 0},
+        )
+        dato["pendientes"] = fila["total"]
+    ordenadas = sorted(
+        personas.values(),
+        key=lambda d: (-d["resueltos"], -d["pendientes"], d["nombre"]),
+    )
+    _hoja_tabla(
+        wb, "Por persona",
+        ["Persona", "Tickets resueltos", "De ellos, cerrados",
+         "Pendientes asignados", "Horas promedio de resolución"],
+        [[d["nombre"], d["resueltos"], d["cerrados"], d["pendientes"], d["horas"]]
+         for d in ordenadas],
+        [30, 16, 18, 20, 22],
+    )
+
+    por_estado = dict(
+        base.order_by().values_list("estado").annotate(total=Count("id"))
+    )
+    tiempos = base.aggregate(
+        resolucion=Avg(DURACION_RESOLUCION, filter=FILTRO_CON_RESOLUCION),
+        respuesta=Avg(
+            DURACION_PRIMERA_RESPUESTA, filter=FILTRO_CON_PRIMERA_RESPUESTA
+        ),
+    )
+    estados_sla = [t.estado_sla for t in con_sla]
+    cumplidos = estados_sla.count("Cumplido")
+    incumplidos = estados_sla.count("Incumplido")
+    resumen = wb.create_sheet("Resumen general")
+    resumen.append(["Resumen general de tickets"])
+    resumen["A1"].font = Font(bold=True, size=14)
+    resumen.append(["Generado", _local(ahora)])
+    resumen.cell(row=2, column=2).number_format = FORMATO_FECHA
+    resumen.append(["Creados desde", desde.isoformat() if desde else "Sin límite"])
+    resumen.append(["Creados hasta", hasta.isoformat() if hasta else "Sin límite"])
+    resumen.append(["Total de tickets", sum(por_estado.values())])
+    resumen.append([])
+    resumen.append(["Por estado", "Tickets"])
+    _estilizar_encabezado(resumen, resumen.max_row, 2)
+    for valor, etiqueta in Ticket.Estado.choices:
+        resumen.append([etiqueta, por_estado.get(valor, 0)])
+    resumen.append([])
+    resumen.append(["Tiempos", "Horas"])
+    _estilizar_encabezado(resumen, resumen.max_row, 2)
+    resumen.append(["Promedio de primera respuesta", _horas(tiempos["respuesta"]) or "—"])
+    resumen.append(["Promedio de resolución", _horas(tiempos["resolucion"]) or "—"])
+    resumen.append([])
+    resumen.append(["SLA", "Tickets"])
+    _estilizar_encabezado(resumen, resumen.max_row, 2)
+    for etiqueta in ("En tiempo", "Por vencer", "Vencido", "Cumplido", "Incumplido"):
+        resumen.append([etiqueta, estados_sla.count(etiqueta)])
+    resumen.append([
+        "Cumplimiento (resueltos a tiempo)",
+        f"{round(cumplidos / (cumplidos + incumplidos) * 100)} %"
+        if (cumplidos + incumplidos) else "—",
+    ])
+    resumen.column_dimensions["A"].width = 38
+    resumen.column_dimensions["B"].width = 22
+    wb.move_sheet(resumen, offset=-(len(wb.sheetnames) - 1))
+
 @admin_required
 def exportar_resueltos(request):
     """Descarga en Excel los tickets resueltos (cerrados) con todos sus datos.
@@ -330,7 +570,9 @@ def exportar_resueltos(request):
     hoja.freeze_panes = "C2"
     hoja.auto_filter.ref = hoja.dimensions
 
-    resumen = wb.create_sheet("Resumen")
+    _agregar_hojas(wb, request, desde, hasta)
+
+    resumen = wb.create_sheet("Resumen resueltos")
     total = sum(resumen_area.values())
     resumen.append(["Resumen de tickets resueltos"])
     resumen["A1"].font = Font(bold=True, size=14)
@@ -358,7 +600,7 @@ def exportar_resueltos(request):
     salida = BytesIO()
     wb.save(salida)
 
-    nombre = f"tickets_resueltos_{timezone.localdate().isoformat()}.xlsx"
+    nombre = f"reporte_tickets_{timezone.localdate().isoformat()}.xlsx"
     respuesta = HttpResponse(
         salida.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
