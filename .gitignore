@@ -35,3 +35,18 @@ htmlcov/
 Thumbs.db
 
 .gitignore
+
+# --- Flutter / Dart ---
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.emd
+ios/Flutter/Flutter.podspec
+ios/Flutter/ephemeral/
+.pub-cache/
+.pub/
+*/*.lock
+!pubspec.lock
