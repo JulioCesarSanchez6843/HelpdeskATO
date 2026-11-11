@@ -84,8 +84,6 @@ Para generar la SECRET_KEY:
 python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
-No subas el `.env` a Git: contiene contraseñas.
-
 ### 5. Preparar la base de datos
 
 ```bash
@@ -152,22 +150,6 @@ El segundo envía la cola de correos y hace el cierre automático de tickets. Si
 
 4. Para que arranquen solos al encender el servidor, usa el Programador de tareas (Windows) o servicios de systemd (Linux), uno por cada comando.
 
-## Respaldo
+## Hecho por Juls.
 
-Las fotos de los tickets están dentro de la base de datos, así que basta respaldar la base:
 
-```bash
-pg_dump -U postgres -h localhost -F c -f respaldo_helpdesk.dump helpdesk_db
-```
-
-## Actualizar
-
-```bash
-git pull
-pip install -r requirements/dev.txt
-python manage.py migrate
-```
-
-Después reinicia los dos procesos.
-
-Hecho por Juls.
