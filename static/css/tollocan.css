@@ -1172,3 +1172,39 @@ a > .card:hover {
         flex: 1 1 100%;
     }
 }
+
+.avatar-chico {
+    flex: 0 0 var(--tam, 36px);
+    width: var(--tam, 36px);
+    height: var(--tam, 36px);
+    border-radius: 50%;
+    object-fit: cover;
+    display: inline-block;
+}
+
+.avatar-chico-iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--tollocan-icono), var(--tollocan-rojo-oscuro));
+    color: #ffffff;
+    font-weight: 700;
+    font-size: calc(var(--tam, 36px) * 0.4);
+    line-height: 1;
+    user-select: none;
+}
+
+.table-secondary .avatar-chico {
+    filter: grayscale(1);
+    opacity: 0.65;
+}
+
+.avatar-nav-iniciales {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--barra-texto);
+    font-weight: 700;
+    font-size: 0.9rem;
+}

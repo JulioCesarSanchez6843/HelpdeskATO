@@ -1,0 +1,5 @@
+{% if version %}
+<img src="{% url 'foto_usuario' usuario.pk %}?v={{ version }}" alt="" class="avatar-chico" style="--tam: {{ tam|default:36 }}px" loading="lazy">
+{% else %}
+<span class="avatar-chico avatar-chico-iniciales" style="--tam: {{ tam|default:36 }}px">{{ usuario.iniciales }}</span>
+{% endif %}

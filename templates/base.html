@@ -58,7 +58,7 @@
                     {% if foto_version %}
                     <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-nav">
                     {% else %}
-                    <i class="bi bi-person-circle fs-2"></i>
+                    <span class="avatar-nav avatar-nav-iniciales">{{ user.iniciales }}</span>
                     {% endif %}
                     <span class="ms-2 d-none d-sm-inline">{{ user.nombre }}</span>
                 </a>

@@ -35,7 +35,7 @@
         </div>
 
         {% if puede_comentar %}
-            <form method="post" action="{% url 'comentar_ticket' ticket.pk %}" class="mt-3" enctype="multipart/form-data"></form>
+            <form method="post" action="{% url 'comentar_ticket' ticket.pk %}" class="mt-3" enctype="multipart/form-data">
                 {% csrf_token %}
                 <textarea
                     name="contenido"

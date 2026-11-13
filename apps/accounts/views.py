@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -112,8 +112,14 @@ def lista_usuarios(request):
     desde = request.GET.get("desde", "")
     hasta = request.GET.get("hasta", "")
 
-    usuarios = _usuarios_gestionables(request.user).select_related(
-        "sucursal", "area", "puesto"
+    usuarios = (
+        _usuarios_gestionables(request.user)
+        .select_related("sucursal", "area", "puesto")
+        .annotate(
+            foto_actualizada=Subquery(
+                FotoPerfil.objects.filter(usuario=OuterRef("pk")).values("actualizada_en")[:1]
+            )
+        )
     )
 
     if q:
