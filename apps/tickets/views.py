@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, F, Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -32,6 +32,17 @@ ESTADOS_VALIDOS = {valor for valor, _ in Ticket.Estado.choices}
 PRIORIDADES_VALIDAS = {valor for valor, _ in Ticket.Prioridad.choices}
 
 TICKETS_POR_PAGINA = 15
+
+LIMITE_COLUMNA_KANBAN = 20
+
+CLASES_ESTADO_KANBAN = {
+    Ticket.Estado.ABIERTO: "stat-abiertos",
+    Ticket.Estado.EN_PROCESO: "stat-proceso",
+    Ticket.Estado.EN_ESPERA: "stat-total",
+    Ticket.Estado.POR_CONFIRMAR: "stat-confirmar",
+    Ticket.Estado.CERRADO: "stat-cerrados",
+}
+
 
 def _tickets_visibles(usuario):
     tickets = Ticket.objects.select_related(
@@ -168,8 +179,6 @@ def lista_tickets(request):
         "sucursal_sel": sucursal,
         "desde": desde,
         "hasta": hasta,
-        "desde": desde,
-        "hasta": hasta,
         "estados": Ticket.Estado.choices,
         "prioridad_sel": prioridad,
         "asignado_sel": asignado,
@@ -180,14 +189,69 @@ def lista_tickets(request):
     if es_personal:
         contexto["areas"] = Area.objects.visibles_para(request.user)
         contexto["categorias"] = Categoria.objects.visibles_para(request.user)
+        contexto["sucursales"] = Sucursal.objects.all()
         contexto["asignados"] = Usuario.objects.filter(
-            pk__in=base.filter(asignado_a__isnull=False).values("asignado_a_id")
+            Q(pk__in=base.filter(asignado_a__isnull=False).values("asignado_a_id"))
+            | Q(pk=request.user.pk)
         ).order_by("nombre")
+        contexto["mis_activos"] = (
+            base.filter(asignado_a=request.user)
+            .exclude(estado=Ticket.Estado.CERRADO)
+            .count()
+        )
         plantilla = "tickets/panel_admin.html"
     else:
         plantilla = "tickets/mis_tickets.html"
 
     return render(request, plantilla, contexto)
+
+
+@personal_required
+def mis_asignados(request):
+    propios = _tickets_visibles(request.user).filter(asignado_a=request.user)
+
+    conteos = {
+        fila["estado"]: fila["total"]
+        for fila in propios.values("estado").annotate(total=Count("id")).order_by()
+    }
+
+    con_foto = propios.annotate(creado_por_foto=foto_de("creado_por_id"))
+
+    columnas = []
+    for valor, etiqueta in Ticket.Estado.choices:
+        if valor == Ticket.Estado.CERRADO:
+            orden = ("-cerrado_en", "-id")
+        else:
+            orden = (F("sla_vence_en").asc(nulls_last=True), "creado_en")
+
+        tickets = list(
+            con_foto.filter(estado=valor).order_by(*orden)[:LIMITE_COLUMNA_KANBAN]
+        )
+        total = conteos.get(valor, 0)
+        columnas.append(
+            {
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "clase": CLASES_ESTADO_KANBAN[valor],
+                "total": total,
+                "tickets": tickets,
+                "hay_mas": total > len(tickets),
+            }
+        )
+
+    mis_activos = sum(
+        total for valor, total in conteos.items() if valor != Ticket.Estado.CERRADO
+    )
+
+    return render(
+        request,
+        "tickets/mis_asignados.html",
+        {
+            "columnas": columnas,
+            "total": sum(conteos.values()),
+            "mis_activos": mis_activos,
+        },
+    )
 
 
 @login_required
@@ -300,6 +364,7 @@ def detalle_ticket(request, pk):
         },
     )
 
+
 @login_required
 @require_POST
 def comentar_ticket(request, pk):
@@ -333,6 +398,7 @@ def comentar_ticket(request, pk):
             messages.success(request, "Mensaje enviado.")
 
     return redirect("detalle_ticket", pk=pk)
+
 
 @login_required
 def nuevo_ticket(request):
@@ -388,6 +454,7 @@ def ver_adjunto(request, pk):
     respuesta["X-Content-Type-Options"] = "nosniff"
     respuesta["Cache-Control"] = "private, max-age=3600"
     return respuesta
+
 
 def _aplicar_respuesta(ticket_pk, actor, accion, motivo):
     with transaction.atomic():
@@ -463,6 +530,7 @@ def confirmar_cierre(request, token):
 
     return render(request, "tickets/confirmar_cierre.html", {"ticket": ticket})
 
+
 def acceso_directo(request, token):
     usuario, ticket_pk = acceso.datos_desde_token(token)
 
@@ -474,6 +542,7 @@ def acceso_directo(request, token):
         login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")
 
     return redirect("detalle_ticket", pk=ticket_pk)
+
 
 def marcar_en_proceso(request, token):
     ticket, admin = services.ticket_y_admin_desde_token(token)
@@ -552,6 +621,7 @@ def forzar_cierre(request, pk):
 
     return redirect("detalle_ticket", pk=pk)
 
+
 @personal_required
 @require_POST
 def tomar_ticket(request, pk):
@@ -598,6 +668,7 @@ def asignar_ticket(request, pk):
 
     return redirect("detalle_ticket", pk=pk)
 
+
 @personal_required
 @require_POST
 def escalar_ticket(request, pk):
@@ -630,6 +701,7 @@ def escalar_ticket(request, pk):
                 messages.error(request, mensaje or "Revisa los datos de la escalada.")
 
     return redirect("detalle_ticket", pk=pk)
+
 
 @login_required
 def lista_notificaciones(request):
@@ -674,6 +746,7 @@ def notificaciones_leer_todas(request):
     )
 
     return redirect("lista_notificaciones")
+
 
 @login_required
 @require_POST

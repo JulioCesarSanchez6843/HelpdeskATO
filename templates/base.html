@@ -101,7 +101,7 @@
             <div class="nav flex-column">
                 <a class="nav-link {% if request.resolver_match.url_name == 'panel_inicio' %}active{% endif %}" href="{% url 'panel_inicio' %}" title="Inicio"><i class="bi bi-house-door"></i><span class="etiqueta">Inicio</span></a>
                 {% if user.es_personal %}
-                <a class="nav-link {% if request.resolver_match.url_name == 'lista_tickets' %}active{% endif %}" href="{% url 'lista_tickets' %}" title="Tickets"><i class="bi bi-ticket-perforated"></i><span class="etiqueta">Tickets</span></a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'lista_tickets' or request.resolver_match.url_name == 'mis_asignados' %}active{% endif %}" href="{% url 'lista_tickets' %}" title="Tickets"><i class="bi bi-ticket-perforated"></i><span class="etiqueta">Tickets</span></a>
                 {% if user.es_admin %}
                 <a class="nav-link {% if request.resolver_match.url_name == 'lista_usuarios' %}active{% endif %}" href="{% url 'lista_usuarios' %}" title="Usuarios"><i class="bi bi-people"></i><span class="etiqueta">Usuarios</span></a>
                 {% if user.es_superadmin %}

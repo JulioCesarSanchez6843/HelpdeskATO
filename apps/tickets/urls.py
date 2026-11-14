@@ -8,6 +8,8 @@ urlpatterns = [
 
     path("nuevo/", views.nuevo_ticket, name="nuevo_ticket"),
 
+    path("mis-asignados/", views.mis_asignados, name="mis_asignados"),
+
     path("adjuntos/<int:pk>/", views.ver_adjunto, name="ver_adjunto"),
 
     path("confirmar/<str:token>/", views.confirmar_cierre, name="confirmar_cierre"),

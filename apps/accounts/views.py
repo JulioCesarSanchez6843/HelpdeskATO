@@ -51,8 +51,8 @@ from .permisos import (
 from apps.catalog.models import Area, Puesto, Sucursal
 
 LOGIN_MAX_INTENTOS = 5
+LOGIN_BLOQUEO_SEGUNDOS = 15 * 60
 USUARIOS_POR_PAGINA = 20
-
 
 def _clave_login(request, correo):
     huella = hashlib.sha256(
