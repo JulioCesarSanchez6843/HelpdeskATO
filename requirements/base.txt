@@ -3,3 +3,4 @@ psycopg2-binary
 python-decouple
 Pillow
 openpyxl
+djangorestframework>=3.18.3

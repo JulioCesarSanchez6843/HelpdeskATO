@@ -7,19 +7,6 @@ SECRET_KEY = config("SECRET_KEY", default="dev-key-cambia-en-produccion")
 DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
 
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "apps.catalog",
-    "apps.accounts",
-    "apps.tickets",
-    "apps.dashboard",
-    "apps.actividad",
-]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -135,8 +122,37 @@ LOGGING = {
     "loggers": {
         "apps": {"handlers": ["console"], "level": "INFO"},
     },
+
+    
 }
 
 ADJUNTOS_MAX_ARCHIVOS = 5
 ADJUNTOS_MAX_MB = 10
 CORREOS_EN_SEGUNDO_PLANO = config("CORREOS_EN_SEGUNDO_PLANO", default=True, cast=bool)
+
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "apps.catalog",
+    "apps.accounts",
+    "apps.tickets",
+    "apps.dashboard",
+    "apps.actividad",
+    "apps.api",
+]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
