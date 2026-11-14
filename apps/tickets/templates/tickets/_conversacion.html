@@ -6,28 +6,33 @@
         <div style="max-height: 360px; overflow-y: auto;">
             {% for comentario in comentarios %}
                 <div class="border-bottom pb-2 mb-2{% if comentario.interno %} bg-warning-subtle rounded p-2{% endif %}">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                        <strong class="small">
-                            {{ comentario.autor.nombre }}
-                            {% if comentario.autor_id == ticket.creado_por_id %}
-                                <span class="badge bg-secondary">Solicitante</span>
+                    <div class="d-flex gap-2">
+                        {% include "accounts/_avatar.html" with usuario=comentario.autor version=comentario.autor_foto|date:"U" tam=32 %}
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <strong class="small">
+                                    {{ comentario.autor.nombre }}
+                                    {% if comentario.autor_id == ticket.creado_por_id %}
+                                        <span class="badge bg-secondary">Solicitante</span>
+                                    {% endif %}
+                                    {% if comentario.interno %}
+                                        <span class="badge bg-warning text-dark">Nota interna</span>
+                                    {% endif %}
+                                </strong>
+                                <small class="text-muted text-nowrap">{{ comentario.creado_en|date:"d/m/Y H:i" }}</small>
+                            </div>
+                            <div class="small">{{ comentario.contenido|linebreaksbr }}</div>
+                            {% if comentario.adjuntos.all %}
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    {% for adjunto in comentario.adjuntos.all %}
+                                        <a href="{% url 'ver_adjunto' adjunto.pk %}" target="_blank" rel="noopener">
+                                            <img src="{% url 'ver_adjunto' adjunto.pk %}" alt="{{ adjunto.nombre }}" loading="lazy" style="width: 90px; height: 90px; object-fit: cover; border-radius: 10px;">
+                                        </a>
+                                    {% endfor %}
+                                </div>
                             {% endif %}
-                            {% if comentario.interno %}
-                                <span class="badge bg-warning text-dark">Nota interna</span>
-                            {% endif %}
-                        </strong>
-                        <small class="text-muted text-nowrap">{{ comentario.creado_en|date:"d/m/Y H:i" }}</small>
-                    </div>
-                    <div class="small">{{ comentario.contenido|linebreaksbr }}</div>
-                    {% if comentario.adjuntos.all %}
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            {% for adjunto in comentario.adjuntos.all %}
-                                <a href="{% url 'ver_adjunto' adjunto.pk %}" target="_blank" rel="noopener">
-                                    <img src="{% url 'ver_adjunto' adjunto.pk %}" alt="{{ adjunto.nombre }}" loading="lazy" style="width: 90px; height: 90px; object-fit: cover; border-radius: 10px;">
-                                </a>
-                            {% endfor %}
                         </div>
-                    {% endif %}
+                    </div>
                 </div>
             {% empty %}
                 <p class="text-muted small mb-0">Aún no hay mensajes.</p>

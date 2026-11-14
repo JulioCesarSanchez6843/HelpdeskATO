@@ -12,9 +12,7 @@ from apps.accounts.models import Usuario
 from apps.catalog.models import Sucursal
 from apps.dashboard.views import _escribir, _estilizar_encabezado, _local
 
-from apps.accounts.utilidades import entero_positivo
-
-from apps.accounts.utilidades import entero_positivo
+from apps.accounts.utilidades import entero_positivo, foto_de
 
 from .models import Evento
 
@@ -139,7 +137,13 @@ def lista(request):
     )
     resumen = _resumen(eventos) if request.user.es_admin else []
 
-    pagina = Paginator(eventos, EVENTOS_POR_PAGINA).get_page(request.GET.get("page"))
+    pagina = Paginator(
+        eventos.select_related("actor", "afectado").annotate(
+            actor_foto=foto_de("actor_id"),
+            afectado_foto=foto_de("afectado_id"),
+        ),
+        EVENTOS_POR_PAGINA,
+    ).get_page(request.GET.get("page"))
     parametros = request.GET.copy()
     parametros.pop("page", None)
 

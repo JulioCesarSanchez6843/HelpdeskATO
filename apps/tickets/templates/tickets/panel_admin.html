@@ -301,7 +301,10 @@
                     </td>
 
                     <td>
-                        {{ ticket.creado_por }}
+                        <div class="d-flex align-items-center gap-2">
+                            {% include "accounts/_avatar.html" with usuario=ticket.creado_por version=ticket.creado_por_foto|date:"U" tam=28 %}
+                            <span>{{ ticket.creado_por }}</span>
+                        </div>
                     </td>
 
                     <td>
@@ -330,7 +333,10 @@
 
                     <td>
                         {% if ticket.asignado_a %}
-                            {{ ticket.asignado_a }}
+                            <div class="d-flex align-items-center gap-2">
+                                {% include "accounts/_avatar.html" with usuario=ticket.asignado_a version=ticket.asignado_a_foto|date:"U" tam=28 %}
+                                <span>{{ ticket.asignado_a }}</span>
+                            </div>
                         {% else %}
                             <em class="text-muted">Sin asignar</em>
                         {% endif %}

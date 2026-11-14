@@ -23,7 +23,10 @@
                         <small class="text-muted text-nowrap">{{ evento.fecha|date:"d/m/Y H:i" }}</small>
                     </div>
                     <div class="small">{{ evento.contenido|linebreaksbr }}</div>
-                    <small class="text-muted">por {{ evento.usuario }}</small>
+                    <div class="d-flex align-items-center gap-1 mt-1">
+                        {% include "accounts/_avatar.html" with usuario=evento.usuario version=evento.usuario_foto|date:"U" tam=20 %}
+                        <small class="text-muted">por {{ evento.usuario }}</small>
+                    </div>
                 </li>
             {% empty %}
                 <li class="list-group-item text-muted small">Sin actividad todavía.</li>

@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 
 from apps.accounts.decorators import admin_required, personal_required
-from apps.accounts.utilidades import entero_positivo
+from apps.accounts.utilidades import entero_positivo, foto_de
 from apps.catalog.models import Area, Categoria, Sucursal
 
 from . import acceso, services
@@ -73,7 +73,10 @@ def lista_tickets(request):
     desde = request.GET.get("desde", "")
     hasta = request.GET.get("hasta", "")
 
-    tickets = base
+    tickets = base.annotate(
+        creado_por_foto=foto_de("creado_por_id"),
+        asignado_a_foto=foto_de("asignado_a_id"),
+    )
 
     if q:
         filtro = (
@@ -165,7 +168,14 @@ def lista_tickets(request):
 
 @login_required
 def detalle_ticket(request, pk):
-    ticket = get_object_or_404(_tickets_visibles(request.user), pk=pk)
+    ticket = get_object_or_404(
+        _tickets_visibles(request.user).annotate(
+            creado_por_foto=foto_de("creado_por_id"),
+            asignado_a_foto=foto_de("asignado_a_id"),
+            resuelto_por_foto=foto_de("resuelto_por_id"),
+        ),
+        pk=pk,
+    )
 
     es_personal = request.user.es_personal
 
@@ -211,13 +221,19 @@ def detalle_ticket(request, pk):
 
             return redirect("detalle_ticket", pk=pk)
 
-    comentarios = ticket.comentarios.select_related("autor").prefetch_related(
-        Prefetch("adjuntos", queryset=AdjuntoTicket.objects.defer("contenido"))
+    comentarios = (
+        ticket.comentarios.select_related("autor")
+        .annotate(autor_foto=foto_de("autor_id"))
+        .prefetch_related(
+            Prefetch("adjuntos", queryset=AdjuntoTicket.objects.defer("contenido"))
+        )
     )
     if not es_personal:
         comentarios = comentarios.filter(interno=False)
 
-    historial = ticket.historial.select_related("usuario")
+    historial = ticket.historial.select_related("usuario").annotate(
+        usuario_foto=foto_de("usuario_id")
+    )
     if not es_personal:
         historial = historial.exclude(tipo=Historial.Tipo.ESCALADO)
 

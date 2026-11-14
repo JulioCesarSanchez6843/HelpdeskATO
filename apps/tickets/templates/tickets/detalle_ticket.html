@@ -229,7 +229,16 @@
                     <dd class="col-7 mb-2">{{ ticket.area|default:"—" }}</dd>
 
                     <dt class="col-5 text-muted fw-normal">Asignado a</dt>
-                    <dd class="col-7 mb-2">{{ ticket.asignado_a|default:"Sin asignar" }}</dd>
+                    <dd class="col-7 mb-2">
+                        {% if ticket.asignado_a %}
+                            <div class="d-flex align-items-center gap-2">
+                                {% include "accounts/_avatar.html" with usuario=ticket.asignado_a version=ticket.asignado_a_foto|date:"U" tam=24 %}
+                                <span>{{ ticket.asignado_a }}</span>
+                            </div>
+                        {% else %}
+                            Sin asignar
+                        {% endif %}
+                    </dd>
 
                     {% if form_gestion %}
                         <dt class="col-5 text-muted fw-normal">Prioridad</dt>
@@ -253,13 +262,21 @@
 
                     <dt class="col-5 text-muted fw-normal">Creado por</dt>
                     <dd class="col-7 mb-2">
-                        {{ ticket.creado_por }}
+                        <div class="d-flex align-items-center gap-2">
+                            {% include "accounts/_avatar.html" with usuario=ticket.creado_por version=ticket.creado_por_foto|date:"U" tam=24 %}
+                            <span>{{ ticket.creado_por }}</span>
+                        </div>
                         <div class="text-muted">{{ ticket.creado_en|date:"d/m/Y H:i" }}</div>
                     </dd>
 
                     {% if ticket.resuelto_por %}
                         <dt class="col-5 text-muted fw-normal">Resuelto por</dt>
-                        <dd class="col-7 mb-2">{{ ticket.resuelto_por }}</dd>
+                        <dd class="col-7 mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                {% include "accounts/_avatar.html" with usuario=ticket.resuelto_por version=ticket.resuelto_por_foto|date:"U" tam=24 %}
+                                <span>{{ ticket.resuelto_por }}</span>
+                            </div>
+                        </dd>
                     {% endif %}
 
                     {% if ticket.cerrado_en %}

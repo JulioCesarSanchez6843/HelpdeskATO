@@ -173,9 +173,27 @@
                     {% for e in page_obj %}
                     <tr>
                         <td class="text-nowrap">{{ e.creado_en|date:"d/m/Y H:i" }}</td>
-                        <td>{{ e.actor_nombre|default:"—" }}</td>
+                        <td>
+                            {% if e.actor %}
+                                <div class="d-flex align-items-center gap-2">
+                                    {% include "accounts/_avatar.html" with usuario=e.actor version=e.actor_foto|date:"U" tam=24 %}
+                                    <span>{{ e.actor_nombre|default:e.actor.nombre }}</span>
+                                </div>
+                            {% else %}
+                                {{ e.actor_nombre|default:"—" }}
+                            {% endif %}
+                        </td>
                         <td><span class="badge bg-secondary">{{ e.get_tipo_display }}</span></td>
-                        <td>{{ e.afectado_nombre|default:"—" }}</td>
+                        <td>
+                            {% if e.afectado %}
+                                <div class="d-flex align-items-center gap-2">
+                                    {% include "accounts/_avatar.html" with usuario=e.afectado version=e.afectado_foto|date:"U" tam=24 %}
+                                    <span>{{ e.afectado_nombre|default:e.afectado.nombre }}</span>
+                                </div>
+                            {% else %}
+                                {{ e.afectado_nombre|default:"—" }}
+                            {% endif %}
+                        </td>
                         <td>
                             {% if e.ticket_id %}
                                 <a href="{% url 'detalle_ticket' e.ticket_id %}">#{{ e.ticket_numero }}</a>
