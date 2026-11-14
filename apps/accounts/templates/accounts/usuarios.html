@@ -120,7 +120,7 @@
 <div class="card shadow-sm">
 
     <div class="card-header bg-white">
-        {{ usuarios|length }} usuario{{ usuarios|length|pluralize }}
+        {{ page_obj.paginator.count }} usuario{{ page_obj.paginator.count|pluralize }}
     </div>
 
     <div class="table-responsive">
@@ -138,7 +138,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for usuario in usuarios %}
+                {% for usuario in page_obj %}
                 <tr {% if not usuario.activo %}class="table-secondary text-muted"{% endif %}>
                     <td>
                         <div class="d-flex align-items-center gap-2">
@@ -197,5 +197,11 @@
             </tbody>
         </table>
     </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer bg-white pb-3">
+        {% include "tickets/_paginacion.html" %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

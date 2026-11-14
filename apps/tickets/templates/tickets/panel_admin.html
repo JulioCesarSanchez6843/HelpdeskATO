@@ -164,21 +164,21 @@
                 name="q"
                 value="{{ q }}"
                 class="form-control"
-                placeholder="Buscar por título, usuario, sucursal, área..."
+                placeholder="Buscar por #, título, usuario, asignado, sucursal, área..."
             >
         </div>
 
         <button
             type="button"
-            class="buscador-toggle {% if estado_sel or sucursal_sel or area_sel or categoria_sel or desde %}activo{% endif %}"
+            class="buscador-toggle {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}activo{% endif %}"
             data-bs-toggle="collapse"
             data-bs-target="#panelFiltros"
-            aria-expanded="{% if estado_sel or sucursal_sel or area_sel or categoria_sel or desde %}true{% else %}false{% endif %}"
+            aria-expanded="{% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}true{% else %}false{% endif %}"
             aria-controls="panelFiltros"
         >
             <i class="bi bi-sliders"></i>
             <span class="buscador-texto">Filtros</span>
-            {% if estado_sel or sucursal_sel or area_sel or categoria_sel or desde %}
+            {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}
             <span class="buscador-punto"></span>
             {% endif %}
             <i class="bi bi-chevron-down buscador-flecha"></i>
@@ -186,7 +186,7 @@
 
         <a
             href="?"
-            class="buscador-limpiar {% if not q and not estado_sel and not sucursal_sel and not area_sel and not categoria_sel and not desde %}oculto{% endif %}"
+            class="buscador-limpiar {% if not q and not estado_sel and not prioridad_sel and not asignado_sel and not sucursal_sel and not area_sel and not categoria_sel and not desde %}oculto{% endif %}"
             title="Limpiar filtros"
         >
             <i class="bi bi-eraser"></i>
@@ -196,7 +196,7 @@
 
     <div
         id="panelFiltros"
-        class="collapse {% if estado_sel or sucursal_sel or area_sel or categoria_sel or desde %}show{% endif %}"
+        class="collapse {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}show{% endif %}"
     >
         <div class="buscador-panel">
 
@@ -210,9 +210,32 @@
                 </select>
             </div>
 
+            <div>
+                <label>Prioridad</label>
+                <select name="prioridad" class="form-select {% if prioridad_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for valor, etiqueta in prioridades %}
+                    <option value="{{ valor }}" {% if prioridad_sel == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                    <option value="sin" {% if prioridad_sel == "sin" %}selected{% endif %}>Sin prioridad</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Asignado a</label>
+                <select name="asignado" class="form-select {% if asignado_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="sin" {% if asignado_sel == "sin" %}selected{% endif %}>Sin asignar</option>
+                    {% for p in asignados %}
+                    <option value="{{ p.pk }}" {% if asignado_sel == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
             {% if user.es_superadmin %}
             <div>
                 <label>Sucursal</label>
+
                 <select name="sucursal" class="form-select {% if sucursal_sel %}activo{% endif %}" onchange="this.form.submit()">
                     <option value="">Todas</option>
                     {% for s in sucursales %}

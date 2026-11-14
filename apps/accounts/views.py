@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
+from django.core.paginator import Paginator
 from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -50,7 +51,7 @@ from .permisos import (
 from apps.catalog.models import Area, Puesto, Sucursal
 
 LOGIN_MAX_INTENTOS = 5
-LOGIN_BLOQUEO_SEGUNDOS = 15 * 60
+USUARIOS_POR_PAGINA = 20
 
 
 def _clave_login(request, correo):
@@ -175,8 +176,13 @@ def lista_usuarios(request):
         desde = ""
         hasta = ""
 
+    pagina = Paginator(usuarios, USUARIOS_POR_PAGINA).get_page(request.GET.get("page"))
+    parametros = request.GET.copy()
+    parametros.pop("page", None)
+
     return render(request, "accounts/usuarios.html", {
-        "usuarios": usuarios,
+        "page_obj": pagina,
+        "querystring": parametros.urlencode(),
         "q": q,
         "rol_sel": rol,
         "estado_sel": estado,

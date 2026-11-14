@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 
 from apps.accounts.decorators import admin_required, personal_required
+from apps.accounts.models import Usuario
 from apps.accounts.utilidades import entero_positivo, foto_de
 from apps.catalog.models import Area, Categoria, Sucursal
 
@@ -28,6 +29,7 @@ from .models import AdjuntoTicket, Historial, Ticket
 
 
 ESTADOS_VALIDOS = {valor for valor, _ in Ticket.Estado.choices}
+PRIORIDADES_VALIDAS = {valor for valor, _ in Ticket.Prioridad.choices}
 
 TICKETS_POR_PAGINA = 15
 
@@ -69,6 +71,8 @@ def lista_tickets(request):
     estado = request.GET.get("estado", "")
     area = request.GET.get("area", "")
     categoria = request.GET.get("categoria", "")
+    prioridad = request.GET.get("prioridad", "")
+    asignado = request.GET.get("asignado", "")
     sucursal = request.GET.get("sucursal", "")
     desde = request.GET.get("desde", "")
     hasta = request.GET.get("hasta", "")
@@ -101,6 +105,21 @@ def lista_tickets(request):
         tickets = tickets.filter(estado=estado)
     else:
         estado = ""
+
+    if es_personal and prioridad == "sin":
+        tickets = tickets.filter(prioridad="")
+    elif es_personal and prioridad in PRIORIDADES_VALIDAS:
+        tickets = tickets.filter(prioridad=prioridad)
+    else:
+        prioridad = ""
+
+    asignado_id = entero_positivo(asignado) if es_personal else None
+    if es_personal and asignado == "sin":
+        tickets = tickets.filter(asignado_a__isnull=True)
+    elif asignado_id is not None:
+        tickets = tickets.filter(asignado_a_id=asignado_id)
+    else:
+        asignado = ""
 
     area_id = entero_positivo(area) if es_personal else None
     if area_id is not None:
@@ -152,13 +171,18 @@ def lista_tickets(request):
         "desde": desde,
         "hasta": hasta,
         "estados": Ticket.Estado.choices,
+        "prioridad_sel": prioridad,
+        "asignado_sel": asignado,
+        "prioridades": Ticket.Prioridad.choices,
         "querystring": parametros.urlencode(),
     }
 
     if es_personal:
         contexto["areas"] = Area.objects.visibles_para(request.user)
         contexto["categorias"] = Categoria.objects.visibles_para(request.user)
-        contexto["sucursales"] = Sucursal.objects.all()
+        contexto["asignados"] = Usuario.objects.filter(
+            pk__in=base.filter(asignado_a__isnull=False).values("asignado_a_id")
+        ).order_by("nombre")
         plantilla = "tickets/panel_admin.html"
     else:
         plantilla = "tickets/mis_tickets.html"
