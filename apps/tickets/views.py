@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Case, Count, F, IntegerField, Prefetch, Q, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -35,6 +35,19 @@ TICKETS_POR_PAGINA = 15
 
 LIMITE_COLUMNA_KANBAN = 20
 
+ESTADOS_EN_COLA = (
+    Ticket.Estado.ABIERTO,
+    Ticket.Estado.EN_PROCESO,
+    Ticket.Estado.EN_ESPERA,
+)
+
+ORDENES_COLA = (
+    ("sla", "SLA: por vencer primero"),
+    ("prioridad", "Prioridad: más alta primero"),
+    ("recientes", "Más recientes"),
+)
+ORDENES_VALIDOS = {valor for valor, _ in ORDENES_COLA}
+
 CLASES_ESTADO_KANBAN = {
     Ticket.Estado.ABIERTO: "stat-abiertos",
     Ticket.Estado.EN_PROCESO: "stat-proceso",
@@ -57,6 +70,33 @@ def _tickets_visibles(usuario):
 
     return tickets.filter(creado_por=usuario)
 
+def _ordenar_cola(tickets, orden):
+    if orden == "recientes":
+        return tickets.order_by("-creado_en", "-id")
+
+    rango_prioridad = Case(
+        When(prioridad=Ticket.Prioridad.CRITICA, then=Value(0)),
+        When(prioridad=Ticket.Prioridad.ALTA, then=Value(1)),
+        When(prioridad=Ticket.Prioridad.MEDIA, then=Value(2)),
+        When(prioridad=Ticket.Prioridad.BAJA, then=Value(3)),
+        default=Value(4),
+        output_field=IntegerField(),
+    )
+    grupo_cola = Case(
+        When(estado__in=ESTADOS_EN_COLA, then=Value(0)),
+        default=Value(1),
+        output_field=IntegerField(),
+    )
+    tickets = tickets.annotate(
+        grupo_cola=grupo_cola,
+        rango_prioridad=rango_prioridad,
+    )
+    sla = F("sla_vence_en").asc(nulls_last=True)
+
+    if orden == "prioridad":
+        return tickets.order_by("grupo_cola", "rango_prioridad", sla, "creado_en", "id")
+
+    return tickets.order_by("grupo_cola", sla, "rango_prioridad", "creado_en", "id")
 
 @login_required
 def lista_tickets(request):
@@ -164,6 +204,13 @@ def lista_tickets(request):
         desde = ""
         hasta = ""
 
+    orden = request.GET.get("orden", "")
+    if orden not in ORDENES_VALIDOS:
+        orden = "sla"
+
+    if es_personal:
+        tickets = _ordenar_cola(tickets, orden)
+
     pagina = Paginator(tickets, TICKETS_POR_PAGINA).get_page(request.GET.get("page"))
 
     parametros = request.GET.copy()
@@ -184,6 +231,8 @@ def lista_tickets(request):
         "asignado_sel": asignado,
         "prioridades": Ticket.Prioridad.choices,
         "querystring": parametros.urlencode(),
+        "orden_sel": orden,
+        "ordenes": ORDENES_COLA,
     }
 
     if es_personal:

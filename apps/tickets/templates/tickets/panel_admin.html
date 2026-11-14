@@ -238,6 +238,15 @@
             </div>
 
             <div>
+                <label>Ordenar por</label>
+                <select name="orden" class="form-select" onchange="this.form.submit()">
+                    {% for valor, etiqueta in ordenes %}
+                    <option value="{{ valor }}" {% if orden_sel == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
                 <label>Asignado a</label>
                 <select name="asignado" class="form-select {% if asignado_sel %}activo{% endif %}" onchange="this.form.submit()">
                     <option value="">Todos</option>
@@ -391,6 +400,8 @@
                         {% include "tickets/_prioridad_badge.html" %}
                         {% if ticket.sla_vencido %}
                             <span class="badge bg-danger">SLA vencido</span>
+                        {% elif ticket.estado_sla == "Por vencer" %}
+                            <span class="badge bg-warning text-dark">SLA por vencer</span>
                         {% endif %}
                     </td>
 
