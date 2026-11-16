@@ -1,94 +1,116 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="mb-4">
-    <h3 class="mb-0">Reportes y estadísticas</h3>
-    <p class="text-muted mb-0">Indicadores de rendimiento del sistema de helpdesk</p>
-</div>
-
-<form method="get" id="formFiltro" class="card shadow-sm mb-3">
-    <div class="card-body py-2">
-        <div class="row g-2 align-items-end">
-            <div class="col-6 col-md-3">
-                <label class="form-label small mb-1" for="desde">Creados desde</label>
-                <input type="date" class="form-control form-control-sm" id="desde" name="desde" value="{{ desde }}">
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label small mb-1" for="hasta">Creados hasta</label>
-                <input type="date" class="form-control form-control-sm" id="hasta" name="hasta" value="{{ hasta }}">
-            </div>
-            <div class="col-12 col-md-auto d-flex gap-2">
-                <button type="submit" class="btn btn-primary btn-sm">Aplicar</button>
-                {% if desde or hasta %}<a href="{% url 'reportes' %}" class="btn btn-outline-secondary btn-sm">Quitar</a>{% endif %}
-            </div>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h3 class="mb-0">Reportes y estadísticas</h3>
+        <p class="text-muted mb-0">
+            Indicadores de rendimiento del helpdesk ·
+            {% if user.es_superadmin %}vista de todas las sucursales{% else %}sucursal {{ user.sucursal|default:"—" }}{% endif %}
+        </p>
     </div>
-</form>
-
-<div class="row g-3">
-    <div class="col-lg-3">
-        <div class="card shadow-sm p-2 mb-3">
-            <div class="nav nav-pills flex-row flex-lg-column flex-wrap gap-1" id="menuReportes" role="tablist" style="--bs-nav-pills-link-active-bg: var(--tollocan-rojo);">
-                <button type="button" class="nav-link text-start active" data-bs-toggle="pill" data-bs-target="#sec-resumen" role="tab"><i class="bi bi-speedometer2 me-2"></i>Resumen</button>
-                <button type="button" class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#sec-tendencia" role="tab"><i class="bi bi-graph-up me-2"></i>Tendencia mensual</button>
-                <button type="button" class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#sec-categorias" role="tab"><i class="bi bi-tags me-2"></i>Por categoría</button>
-                <button type="button" class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#sec-areas" role="tab"><i class="bi bi-diagram-3 me-2"></i>Por área</button>
-                {% if user.es_superadmin %}
-                <button type="button" class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#sec-sucursales" role="tab"><i class="bi bi-building me-2"></i>Por sucursal</button>
-                {% endif %}
-                <button type="button" class="nav-link text-start" data-bs-toggle="pill" data-bs-target="#sec-personas" role="tab"><i class="bi bi-people me-2"></i>Personas</button>
-            </div>
-        </div>
-
-        <button type="button" class="btn btn-success w-100" data-bs-toggle="collapse" data-bs-target="#panelExcel">
+    <div class="dropdown">
+        <button type="button" class="btn btn-success" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
             <i class="bi bi-file-earmark-excel me-1"></i>Descargar Excel
         </button>
-        <div class="collapse" id="panelExcel">
-            <form method="get" action="{% url 'exportar_resueltos' %}" class="card card-body shadow-sm mt-2">
-                <label class="form-label small mb-1" for="exp_desde">Desde</label>
-                <input type="date" class="form-control form-control-sm mb-2" id="exp_desde" name="desde">
-                <label class="form-label small mb-1" for="exp_hasta">Hasta</label>
-                <input type="date" class="form-control form-control-sm mb-2" id="exp_hasta" name="hasta">
-                <button type="submit" class="btn btn-outline-success btn-sm w-100">Descargar</button>
-                <small class="text-muted mt-2">Resueltos: por fecha de cierre. Las demás hojas: por fecha de creación. Sin fechas descarga todo.</small>
-            </form>
-        </div>
+        <form method="get" action="{% url 'exportar_resueltos' %}" class="dropdown-menu dropdown-menu-end p-3 shadow" style="min-width: 280px;">
+            <label class="form-label small mb-1" for="exp_desde">Desde</label>
+            <input type="date" class="form-control form-control-sm mb-2" id="exp_desde" name="desde">
+            <label class="form-label small mb-1" for="exp_hasta">Hasta</label>
+            <input type="date" class="form-control form-control-sm mb-2" id="exp_hasta" name="hasta">
+            <button type="submit" class="btn btn-outline-success btn-sm w-100">Descargar</button>
+            <small class="text-muted d-block mt-2">Resueltos: por fecha de cierre. Las demás hojas: por fecha de creación. Sin fechas descarga todo.</small>
+        </form>
+    </div>
+</div>
+
+<form method="get" id="formReportes">
+
+    <div class="nav nav-pills rep-tabs mb-3" id="menuReportes" role="tablist">
+        <button type="button" class="nav-link active" data-bs-toggle="pill" data-bs-target="#sec-resumen" role="tab">
+            <i class="bi bi-speedometer2"></i><span>Resumen</span>{% if f.res.activos %}<span class="rep-punto">{{ f.res.activos }}</span>{% endif %}
+        </button>
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-tendencia" role="tab">
+            <i class="bi bi-graph-up"></i><span>Tendencia</span>{% if f.ten.activos %}<span class="rep-punto">{{ f.ten.activos }}</span>{% endif %}
+        </button>
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-categorias" role="tab">
+            <i class="bi bi-tags"></i><span>Categorías</span>{% if f.cat.activos %}<span class="rep-punto">{{ f.cat.activos }}</span>{% endif %}
+        </button>
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-areas" role="tab">
+            <i class="bi bi-diagram-3"></i><span>Áreas</span>{% if f.are.activos %}<span class="rep-punto">{{ f.are.activos }}</span>{% endif %}
+        </button>
+        {% if user.es_superadmin %}
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-sucursales" role="tab">
+            <i class="bi bi-building"></i><span>Sucursales</span>{% if f.suc.activos %}<span class="rep-punto">{{ f.suc.activos }}</span>{% endif %}
+        </button>
+        {% endif %}
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-personas" role="tab">
+            <i class="bi bi-people"></i><span>Personas</span>{% if f.per.activos %}<span class="rep-punto">{{ f.per.activos }}</span>{% endif %}
+        </button>
+        <button type="button" class="nav-link" data-bs-toggle="pill" data-bs-target="#sec-satisfaccion" role="tab">
+            <i class="bi bi-emoji-smile"></i><span>Satisfacción</span>{% if f.sat.activos %}<span class="rep-punto">{{ f.sat.activos }}</span>{% endif %}
+        </button>
     </div>
 
-    <div class="col-lg-9">
-        <div class="tab-content">
+    <div class="tab-content">
 
-            <div class="tab-pane fade show active" id="sec-resumen" role="tabpanel">
-                <div class="row g-3 mb-3">
-                    <div class="col-6 col-xl-3">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
+        <div class="tab-pane fade show active" id="sec-resumen" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-speedometer2"></i></div>
+                <div>
+                    <h5 class="mb-0">Resumen general</h5>
+                    <small class="text-muted">Estado de los tickets creados en el rango elegido.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="res" f=f.res %}
+                    {% include "dashboard/_filtro_botones.html" with p="res" %}
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-xl-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body rep-kpi">
+                            <div class="rep-kpi-icono tono-azul"><i class="bi bi-ticket-detailed"></i></div>
+                            <div>
                                 <small class="text-muted text-uppercase">Total tickets</small>
                                 <h3 class="fw-bold mb-0">{{ total }}</h3>
-                                <small class="text-muted">Todos los registros</small>
+                                <small class="text-muted">En este rango</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-xl-3">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body rep-kpi">
+                            <div class="rep-kpi-icono tono-naranja"><i class="bi bi-hourglass-split"></i></div>
+                            <div>
                                 <small class="text-muted text-uppercase">Abiertos</small>
                                 <h3 class="fw-bold mb-0">{{ abiertos }}</h3>
                                 <small class="text-muted">{{ en_proceso }} en proceso · {{ en_espera }} en espera · {{ por_confirmar }} por confirmar</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-xl-3">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body rep-kpi">
+                            <div class="rep-kpi-icono tono-morado"><i class="bi bi-stopwatch"></i></div>
+                            <div>
                                 <small class="text-muted text-uppercase">Resolución</small>
                                 <h3 class="fw-bold mb-0">{% if tiempo_promedio_horas is not None %}{{ tiempo_promedio_horas }} h{% else %}—{% endif %}</h3>
                                 <small class="text-muted">1ª respuesta: {% if tiempo_respuesta_horas is not None %}{{ tiempo_respuesta_horas }} h{% else %}—{% endif %}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-xl-3">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body rep-kpi">
+                            <div class="rep-kpi-icono tono-verde"><i class="bi bi-check2-circle"></i></div>
+                            <div>
                                 <small class="text-muted text-uppercase">% Resueltos</small>
                                 <h3 class="fw-bold mb-0">{{ porcentaje_resueltos }}%</h3>
                                 <small class="text-muted">{{ cerrados }} de {{ total }} cerrados</small>
@@ -96,139 +118,402 @@
                         </div>
                     </div>
                 </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <h6 class="mb-3">Actividad — últimos 7 días</h6>
-                                <div style="position: relative; height: 240px;"><canvas id="graficaActividad"></canvas></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <h6 class="mb-3">Distribución por estado</h6>
-                                <div style="position: relative; height: 240px;"><canvas id="graficaDistribucion"></canvas></div>
-                            </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="mb-3">Actividad — últimos 7 días</h6>
+                            <div style="position: relative; height: 240px;"><canvas id="graficaActividad"></canvas></div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div class="tab-pane fade" id="sec-tendencia" role="tabpanel">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h6 class="mb-3">Creados vs. cerrados — últimos 6 meses</h6>
-                        <div style="position: relative; height: 320px;"><canvas id="graficaMensual"></canvas></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="sec-categorias" role="tabpanel">
-                <div class="card shadow-sm mb-3">
-                    <div class="card-body">
-                        <h6 class="mb-3">Tickets por categoría</h6>
-                        <div style="position: relative;"><canvas id="graficaCategorias"></canvas></div>
-                    </div>
-                </div>
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h6 class="mb-3">Detalle por categoría</h6>
-                        {% include "dashboard/_tabla_resumen.html" with filas=por_categoria titulo="Categoría" %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="tab-pane fade" id="sec-areas" role="tabpanel">
-                <div class="card shadow-sm mb-3">
-                    <div class="card-body">
-                        <h6 class="mb-3">Tickets por área (departamento)</h6>
-                        <div style="position: relative;"><canvas id="graficaAreas"></canvas></div>
-                    </div>
-                </div>
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h6 class="mb-3">Detalle por área</h6>
-                        {% include "dashboard/_tabla_resumen.html" with filas=por_area titulo="Área" %}
-                    </div>
-                </div>
-            </div>
-
-            {% if user.es_superadmin %}
-            <div class="tab-pane fade" id="sec-sucursales" role="tabpanel">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h6 class="mb-3">Detalle por sucursal</h6>
-                        {% include "dashboard/_tabla_resumen.html" with filas=por_sucursal titulo="Sucursal" %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <div class="tab-pane fade" id="sec-personas" role="tabpanel">
-                <div class="card shadow-sm mb-3">
-                    <div class="card-body">
-                        <h6 class="mb-3">Tickets resueltos por persona</h6>
-                        {% if resueltos_por_persona %}
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Persona</th>
-                                        <th>Rol</th>
-                                        <th class="text-end">Resueltos</th>
-                                        <th class="text-end">Ya cerrados</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                {% for p in resueltos_por_persona %}
-                                    <tr>
-                                        <td>{{ p.resuelto_por__nombre }}</td>
-                                        <td>{{ p.rol }}</td>
-                                        <td class="text-end">{{ p.resueltos }}</td>
-                                        <td class="text-end">{{ p.cerrados }}</td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
+                <div class="col-md-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="mb-3">Distribución por estado</h6>
+                            <div style="position: relative; height: 240px;"><canvas id="graficaDistribucion"></canvas></div>
                         </div>
-                        {% else %}
-                        <p class="text-muted mb-0">Sin datos en este rango.</p>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h6 class="mb-3">Usuarios que más tickets crean</h6>
-                        {% if top_solicitantes %}
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead><tr><th>Usuario</th><th>Área</th><th class="text-end">Tickets</th></tr></thead>
-                                <tbody>
-                                {% for u in top_solicitantes %}
-                                    <tr>
-                                        <td>{{ u.creado_por__nombre }}</td>
-                                        <td>{{ u.creado_por__area__nombre|default:"—" }}</td>
-                                        <td class="text-end">{{ u.total }}</td>
-                                    </tr>
-                                {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                        <p class="text-muted mb-0">Sin datos en este rango.</p>
-                        {% endif %}
                     </div>
                 </div>
             </div>
-
         </div>
+
+        <div class="tab-pane fade" id="sec-tendencia" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-graph-up"></i></div>
+                <div>
+                    <h5 class="mb-0">Tendencia mensual</h5>
+                    <small class="text-muted">Tickets creados contra tickets cerrados, mes a mes.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-4 col-xl-3">
+                        <label class="form-label small mb-1" for="ten_meses">Periodo</label>
+                        <select class="form-select form-select-sm" id="ten_meses" name="ten_meses">
+                            <option value="3" {% if f.ten.meses == "3" %}selected{% endif %}>Últimos 3 meses</option>
+                            <option value="" {% if not f.ten.meses or f.ten.meses == "6" %}selected{% endif %}>Últimos 6 meses</option>
+                            <option value="12" {% if f.ten.meses == "12" %}selected{% endif %}>Últimos 12 meses</option>
+                        </select>
+                    </div>
+                    {% include "dashboard/_filtro_base.html" with p="ten" f=f.ten sin_fechas=True %}
+                    {% include "dashboard/_filtro_botones.html" with p="ten" sin_fechas=True %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3">Creados vs. cerrados</h6>
+                    <div style="position: relative; height: 320px;"><canvas id="graficaMensual"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="sec-categorias" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-tags"></i></div>
+                <div>
+                    <h5 class="mb-0">Tickets por categoría</h5>
+                    <small class="text-muted">Qué tipo de problemas se reportan más.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="cat" f=f.cat %}
+                    <div class="col-12 col-md-4 col-xl-3">
+                        <label class="form-label small mb-1" for="cat_area">Área</label>
+                        <select class="form-select form-select-sm" id="cat_area" name="cat_area">
+                            <option value="">Todas las áreas</option>
+                            {% for a in areas %}
+                            <option value="{{ a.pk }}" {% if a.pk == f.cat.area %}selected{% endif %}>{{ a.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% include "dashboard/_filtro_botones.html" with p="cat" %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="mb-3">Tickets por categoría</h6>
+                    <div style="position: relative;"><canvas id="graficaCategorias"></canvas></div>
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3">Detalle por categoría</h6>
+                    {% include "dashboard/_tabla_resumen.html" with filas=por_categoria titulo="Categoría" %}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="sec-areas" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-diagram-3"></i></div>
+                <div>
+                    <h5 class="mb-0">Tickets por área</h5>
+                    <small class="text-muted">Qué departamentos generan más tickets.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="are" f=f.are %}
+                    <div class="col-12 col-md-4 col-xl-3">
+                        <label class="form-label small mb-1" for="are_categoria">Categoría</label>
+                        <select class="form-select form-select-sm" id="are_categoria" name="are_categoria">
+                            <option value="">Todas las categorías</option>
+                            {% for c in categorias %}
+                            <option value="{{ c.pk }}" {% if c.pk == f.are.categoria %}selected{% endif %}>{{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% include "dashboard/_filtro_botones.html" with p="are" %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="mb-3">Tickets por área (departamento)</h6>
+                    <div style="position: relative;"><canvas id="graficaAreas"></canvas></div>
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3">Detalle por área</h6>
+                    {% include "dashboard/_tabla_resumen.html" with filas=por_area titulo="Área" %}
+                </div>
+            </div>
+        </div>
+
+        {% if user.es_superadmin %}
+        <div class="tab-pane fade" id="sec-sucursales" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-building"></i></div>
+                <div>
+                    <h5 class="mb-0">Detalle por sucursal</h5>
+                    <small class="text-muted">Comparativo de tickets entre sucursales.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="suc" f=f.suc sin_sucursal=True %}
+                    {% include "dashboard/_filtro_botones.html" with p="suc" %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3">Detalle por sucursal</h6>
+                    {% include "dashboard/_tabla_resumen.html" with filas=por_sucursal titulo="Sucursal" %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="tab-pane fade" id="sec-personas" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-people"></i></div>
+                <div>
+                    <h5 class="mb-0">Personas</h5>
+                    <small class="text-muted">Quién resuelve tickets y quién los crea.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="per" f=f.per %}
+                    <div class="col-12 col-md-4 col-xl-3">
+                        <label class="form-label small mb-1" for="per_rol">Rol de quien resolvió</label>
+                        <select class="form-select form-select-sm" id="per_rol" name="per_rol">
+                            <option value="">Todos</option>
+                            <option value="ENCARGADO" {% if f.per.rol == "ENCARGADO" %}selected{% endif %}>Encargados</option>
+                            <option value="BECARIO" {% if f.per.rol == "BECARIO" %}selected{% endif %}>Becarios</option>
+                        </select>
+                    </div>
+                    {% include "dashboard/_filtro_botones.html" with p="per" %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="mb-3">Tickets resueltos por persona</h6>
+                    {% if resueltos_por_persona %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Persona</th>
+                                    <th>Rol</th>
+                                    <th class="text-end">Resueltos</th>
+                                    <th class="text-end">Ya cerrados</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for u in resueltos_por_persona %}
+                                <tr>
+                                    <td>{{ u.resuelto_por__nombre }}</td>
+                                    <td>{{ u.rol }}</td>
+                                    <td class="text-end">{{ u.resueltos }}</td>
+                                    <td class="text-end">{{ u.cerrados }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Sin datos en este rango.</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="mb-3">Usuarios que más tickets crean</h6>
+                    {% if top_solicitantes %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>Usuario</th><th>Área</th><th class="text-end">Tickets</th></tr></thead>
+                            <tbody>
+                            {% for u in top_solicitantes %}
+                                <tr>
+                                    <td>{{ u.creado_por__nombre }}</td>
+                                    <td>{{ u.creado_por__area__nombre|default:"—" }}</td>
+                                    <td class="text-end">{{ u.total }}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Sin datos en este rango.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="sec-satisfaccion" role="tabpanel">
+            <div class="rep-cabecera">
+                <div class="rep-cabecera-icono"><i class="bi bi-emoji-smile"></i></div>
+                <div>
+                    <h5 class="mb-0">Satisfacción de los usuarios</h5>
+                    <small class="text-muted">Calificaciones de las encuestas al cerrar un ticket.</small>
+                </div>
+            </div>
+
+            <div class="rep-filtros">
+                <div class="row g-2 align-items-end">
+                    {% include "dashboard/_filtro_base.html" with p="sat" f=f.sat %}
+                    <div class="col-12 col-md-4 col-xl-3">
+                        <label class="form-label small mb-1" for="sat_persona">Persona que resolvió</label>
+                        <select class="form-select form-select-sm" id="sat_persona" name="sat_persona">
+                            <option value="">Todas</option>
+                            {% for u in personas_sat %}
+                            <option value="{{ u.pk }}" {% if u.pk == f.sat.persona %}selected{% endif %}>{{ u.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% include "dashboard/_filtro_botones.html" with p="sat" %}
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <small class="text-muted text-uppercase">Satisfacción promedio</small>
+                            {% if satisfaccion.promedio is not None %}
+                                <div class="promedio-grande my-2">{{ satisfaccion.promedio }}<span class="fs-5 text-muted"> / 5</span></div>
+                                <div class="estrellas-fijas fs-4 mb-1">{% include "tickets/_estrellas.html" with valor=satisfaccion.estrellas_llenas %}</div>
+                                <small class="text-muted">{{ satisfaccion.total }} de {{ satisfaccion.cerrados }} cerrados calificados ({{ satisfaccion.tasa_respuesta }}%)</small>
+                            {% else %}
+                                <p class="text-muted my-4">Aún no hay calificaciones en este rango.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h6 class="mb-3">Distribución de calificaciones</h6>
+                            {% for dist in satisfaccion.distribucion %}
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="small text-nowrap" style="width: 2.5rem;">{{ dist.estrellas }} <i class="bi bi-star-fill estrellas-fijas"></i></span>
+                                    <div class="barra-estrellas flex-grow-1"><span style="width: {{ dist.porcentaje }}%;"></span></div>
+                                    <span class="small text-muted text-end" style="width: 3.5rem;">{{ dist.cantidad }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    {% if user.es_superadmin %}
+                    <h6 class="mb-3">Calificación por sucursal</h6>
+                    {% if satisfaccion.por_sucursal %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Sucursal</th>
+                                    <th class="text-end">Encuestas</th>
+                                    <th class="text-end">Promedio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for suc in satisfaccion.por_sucursal %}
+                                <tr>
+                                    <td>{{ suc.ticket__sucursal__nombre|default:"Sin sucursal" }}</td>
+                                    <td class="text-end">{{ suc.total }}</td>
+                                    <td class="text-end">
+                                        <span class="estrellas-fijas me-1">{% include "tickets/_estrellas.html" with valor=suc.estrellas %}</span>{{ suc.promedio }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Sin datos en este rango.</p>
+                    {% endif %}
+                    <hr class="my-4">
+                    {% endif %}
+
+                    <h6 class="mb-3">Calificación por persona que resolvió</h6>
+                    {% if satisfaccion.por_persona %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Persona</th>
+                                    <th>Rol</th>
+                                    <th>Sucursal</th>
+                                    <th class="text-end">Encuestas</th>
+                                    <th class="text-end">Promedio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for per in satisfaccion.por_persona %}
+                                <tr>
+                                    <td>{{ per.atendido_por__nombre }}</td>
+                                    <td>{{ per.rol }}</td>
+                                    <td>{{ per.atendido_por__sucursal__nombre|default:"—" }}</td>
+                                    <td class="text-end">{{ per.total }}</td>
+                                    <td class="text-end">
+                                        <span class="estrellas-fijas me-1">{% include "tickets/_estrellas.html" with valor=per.estrellas %}</span>{{ per.promedio }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">Sin datos en este rango.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                        <h6 class="mb-0">Comentarios recientes</h6>
+                        <select class="form-select form-select-sm w-auto" name="sat_estrellas" aria-label="Filtrar comentarios por estrellas">
+                            <option value="">Todas las calificaciones</option>
+                            {% for n in "54321" %}
+                            <option value="{{ n }}" {% if f.sat.estrellas == n %}selected{% endif %}>{{ n }} estrellas</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% for c in satisfaccion.comentarios %}
+                        <div class="py-2 {% if not forloop.last %}border-bottom{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="estrellas-fijas">{% include "tickets/_estrellas.html" with valor=c.calificacion %}</span>
+                                <small class="text-muted">{{ c.creada_en|date:"d/m/Y" }}</small>
+                            </div>
+                            <p class="mb-0">{{ c.comentario|linebreaksbr }}</p>
+                            <small class="text-muted">
+                                <a href="{% url 'detalle_ticket' c.ticket_id %}">Ticket #{{ c.ticket_id }}</a> · {{ c.ticket.creado_por.nombre }}{% if user.es_superadmin %} · {{ c.ticket.sucursal|default:"Sin sucursal" }}{% endif %}
+                            </small>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted mb-0">Sin comentarios en este rango.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
     </div>
-</div>
+</form>
 
 {{ graficas|json_script:"datos-graficas" }}
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
     const datos = JSON.parse(document.getElementById('datos-graficas').textContent);
     const COLORES_ESTADO = ['#3b82f6', '#f97316', '#06b6d4', '#22c55e', '#94a3b8'];
@@ -308,9 +593,18 @@
         constructores[id]();
     }
 
+    function fmt(fecha) {
+        return fecha.getFullYear() + '-' + String(fecha.getMonth() + 1).padStart(2, '0') + '-' + String(fecha.getDate()).padStart(2, '0');
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         const botones = Array.from(document.querySelectorAll('#menuReportes [data-bs-toggle="pill"]'));
-        const formulario = document.getElementById('formFiltro');
+        const formulario = document.getElementById('formReportes');
+
+        function enviar() {
+            formulario.classList.add('rep-cargando');
+            formulario.submit();
+        }
 
         botones.forEach(function (boton) {
             boton.addEventListener('shown.bs.tab', function () {
@@ -318,6 +612,51 @@
                 construir(id);
                 history.replaceState(null, '', '#' + id);
                 formulario.action = location.pathname + '#' + id;
+            });
+        });
+
+        formulario.addEventListener('submit', function () {
+            formulario.classList.add('rep-cargando');
+        });
+
+        formulario.addEventListener('change', function (evento) {
+            if (evento.target.matches('select, input[type="date"]')) {
+                enviar();
+            }
+        });
+
+        document.querySelectorAll('.rep-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                const prefijo = chip.dataset.prefijo;
+                const rango = chip.dataset.rango;
+                const desde = formulario.elements[prefijo + '_desde'];
+                const hasta = formulario.elements[prefijo + '_hasta'];
+                const hoy = new Date();
+                if (rango === 'todo') {
+                    desde.value = '';
+                    hasta.value = '';
+                } else if (rango === 'mes') {
+                    desde.value = fmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+                    hasta.value = fmt(hoy);
+                } else {
+                    const inicio = new Date();
+                    inicio.setDate(hoy.getDate() - (parseInt(rango, 10) - 1));
+                    desde.value = fmt(inicio);
+                    hasta.value = fmt(hoy);
+                }
+                enviar();
+            });
+        });
+
+        document.querySelectorAll('.rep-limpiar').forEach(function (boton) {
+            boton.addEventListener('click', function () {
+                const prefijo = boton.dataset.prefijo + '_';
+                Array.from(formulario.elements).forEach(function (campo) {
+                    if (campo.name && campo.name.indexOf(prefijo) === 0) {
+                        campo.value = '';
+                    }
+                });
+                enviar();
             });
         });
 

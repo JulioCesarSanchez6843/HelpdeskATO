@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -384,3 +385,30 @@ class CorreoPendiente(models.Model):
 
     def __str__(self):
         return f"{self.asunto} → {self.destinatarios} ({self.get_estado_display()})"
+
+class EncuestaSatisfaccion(models.Model):
+    ticket = models.OneToOneField(
+        Ticket,
+        on_delete=models.CASCADE,
+        related_name="encuesta",
+    )
+    calificacion = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comentario = models.TextField(blank=True)
+    atendido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creada_en"]
+        verbose_name = "Encuesta de satisfacción"
+        verbose_name_plural = "Encuestas de satisfacción"
+
+    def __str__(self):
+        return f"Ticket #{self.ticket_id}: {self.calificacion}/5"

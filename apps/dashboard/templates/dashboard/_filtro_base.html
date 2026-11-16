@@ -1,0 +1,21 @@
+{% if not sin_fechas %}
+<div class="col-6 col-md-3 col-xl-2">
+    <label class="form-label small mb-1" for="{{ p }}_desde">Desde</label>
+    <input type="date" class="form-control form-control-sm" id="{{ p }}_desde" name="{{ p }}_desde" value="{{ f.desde }}">
+</div>
+<div class="col-6 col-md-3 col-xl-2">
+    <label class="form-label small mb-1" for="{{ p }}_hasta">Hasta</label>
+    <input type="date" class="form-control form-control-sm" id="{{ p }}_hasta" name="{{ p }}_hasta" value="{{ f.hasta }}">
+</div>
+{% endif %}
+{% if user.es_superadmin and not sin_sucursal %}
+<div class="col-12 col-md-4 col-xl-3">
+    <label class="form-label small mb-1" for="{{ p }}_sucursal">Sucursal</label>
+    <select class="form-select form-select-sm" id="{{ p }}_sucursal" name="{{ p }}_sucursal">
+        <option value="">Todas las sucursales</option>
+        {% for s in sucursales %}
+        <option value="{{ s.pk }}" {% if s.pk == f.sucursal %}selected{% endif %}>{{ s.nombre }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}

@@ -25,7 +25,7 @@ from .forms import (
     TicketGestionForm,
 )
 from .imagenes import ImagenInvalida
-from .models import AdjuntoTicket, Historial, Ticket
+from .models import AdjuntoTicket, EncuestaSatisfaccion, Historial, Ticket
 
 
 ESTADOS_VALIDOS = {valor for valor, _ in Ticket.Estado.choices}
@@ -374,11 +374,19 @@ def detalle_ticket(request, pk):
     if not es_personal:
         historial = historial.exclude(tipo=Historial.Tipo.ESCALADO)
 
+    encuesta = EncuestaSatisfaccion.objects.filter(ticket=ticket).first()
+
     return render(
         request,
         "tickets/detalle_ticket.html",
         {
             "ticket": ticket,
+            "encuesta": encuesta,
+            "puede_calificar": (
+                encuesta is None
+                and ticket.estado == Ticket.Estado.CERRADO
+                and ticket.creado_por_id == request.user.pk
+            ),
             "comentarios": comentarios,
             "puede_comentar": ticket.estado != Ticket.Estado.CERRADO,
             "puede_reabrir": ticket.dentro_de_plazo_reapertura,
@@ -819,5 +827,39 @@ def reabrir_ticket(request, pk):
         else:
             services.reabrir_ticket(ticket, request.user, motivo)
             messages.success(request, "Ticket reabierto.")
+
+    return redirect("detalle_ticket", pk=pk)
+
+@login_required
+@require_POST
+def responder_encuesta(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk, creado_por=request.user)
+
+    if ticket.estado != Ticket.Estado.CERRADO:
+        messages.error(request, "Solo puedes calificar un ticket cerrado.")
+        return redirect("detalle_ticket", pk=pk)
+
+    try:
+        calificacion = int(request.POST.get("calificacion", ""))
+    except ValueError:
+        calificacion = 0
+
+    if calificacion < 1 or calificacion > 5:
+        messages.error(request, "Elige de 1 a 5 estrellas.")
+        return redirect("detalle_ticket", pk=pk)
+
+    _, creada = EncuestaSatisfaccion.objects.get_or_create(
+        ticket=ticket,
+        defaults={
+            "calificacion": calificacion,
+            "comentario": request.POST.get("comentario", "").strip()[:1000],
+            "atendido_por": ticket.resuelto_por,
+        },
+    )
+
+    if creada:
+        messages.success(request, "¡Gracias por tu opinión!")
+    else:
+        messages.info(request, "Este ticket ya fue calificado.")
 
     return redirect("detalle_ticket", pk=pk)

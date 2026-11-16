@@ -1208,3 +1208,78 @@ a > .card:hover {
     font-weight: 700;
     font-size: 0.9rem;
 }
+
+.estrellas {
+    position: relative;
+    display: inline-flex;
+    flex-direction: row-reverse;
+    gap: 0.35rem;
+}
+
+.estrellas input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.estrellas label {
+    font-size: 2.4rem;
+    line-height: 1;
+    color: #d5d9e0;
+    cursor: pointer;
+    transition: color 0.15s, transform 0.15s;
+}
+
+.estrellas label:hover,
+.estrellas label:hover ~ label,
+.estrellas input:checked ~ label {
+    color: #f5b301;
+}
+
+.estrellas label:hover {
+    transform: scale(1.15);
+}
+
+.estrellas input:focus-visible + label {
+    outline: 2px solid var(--tollocan-rojo);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+
+.estrellas-fijas {
+    color: #f5b301;
+    white-space: nowrap;
+}
+
+.encuesta-card {
+    background: linear-gradient(180deg, #fffaf0 0%, #ffffff 60%);
+    border: 1px solid #f7e4b5 !important;
+}
+
+.encuesta-icono {
+    font-size: 2.2rem;
+    color: #f5b301;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.promedio-grande {
+    font-size: 3.2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.barra-estrellas {
+    height: 10px;
+    border-radius: 999px;
+    background: #eceff3;
+    overflow: hidden;
+}
+
+.barra-estrellas > span {
+    display: block;
+    height: 100%;
+    background: #f5b301;
+    border-radius: 999px;
+}
