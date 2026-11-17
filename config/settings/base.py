@@ -105,7 +105,7 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-EMAIL_TIMEOUT = 10
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=30, cast=int)
 
 if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
     _backend_por_defecto = "django.core.mail.backends.smtp.EmailBackend"

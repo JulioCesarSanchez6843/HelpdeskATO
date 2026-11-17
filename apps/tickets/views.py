@@ -414,6 +414,7 @@ def detalle_ticket(request, pk):
             ),
             "puede_tomar": (
                 es_personal
+                and not request.user.es_superadmin
                 and ticket.asignado_a_id is None
                 and ticket.estado != Ticket.Estado.CERRADO
                 and request.user.sucursal_id == ticket.sucursal_id
@@ -687,7 +688,9 @@ def tomar_ticket(request, pk):
     with transaction.atomic():
         ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
 
-        if request.user.sucursal_id != ticket.sucursal_id:
+        if request.user.es_superadmin:
+            messages.error(request, "El super administrador no toma tickets, solo los asigna.")
+        elif request.user.sucursal_id != ticket.sucursal_id:
             messages.error(request, "Solo puedes tomar tickets de tu sucursal.")
         elif ticket.estado == Ticket.Estado.CERRADO:
             messages.error(request, "Ese ticket ya está cerrado.")
