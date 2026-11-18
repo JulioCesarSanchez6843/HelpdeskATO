@@ -1,0 +1,11 @@
+{% autoescape off %}Hola {{ destinatario.nombre }},
+
+El ticket #{{ ticket.pk }} está por agotar su tiempo de atención (SLA).
+
+{{ ticket.titulo }}
+Prioridad: {{ ticket.get_prioridad_display }}
+Vence: {{ ticket.sla_vence_en|date:"d/m/Y H:i" }}
+
+Ábrelo aquí:
+{{ url_ticket }}
+{% endautoescape %}

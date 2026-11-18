@@ -118,6 +118,24 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     def es_personal(self):
         return self.es_admin or self.es_becario
 
+    @property
+    def iniciales(self):
+        partes = (self.nombre or "").split()
+        if not partes:
+            return "?"
+        if len(partes) == 1:
+            return partes[0][:1].upper()
+        return (partes[0][:1] + partes[1][:1]).upper()
+
+    @property
+    def iniciales(self):
+        partes = (self.nombre or "").split()
+        if not partes:
+            return "?"
+        if len(partes) == 1:
+            return partes[0][:1].upper()
+        return (partes[0][:1] + partes[1][:1]).upper()
+
 
 class SolicitudCambioPassword(models.Model):
 

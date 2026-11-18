@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-3">
+    <h3 class="mb-0">Panel de administración</h3>
+    <p class="text-muted mb-0">Los tickets que tienes a tu cargo, organizados por estado.</p>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'lista_tickets' %}">
+            <i class="bi bi-ticket-perforated me-1"></i>Todos los tickets
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link active" href="{% url 'mis_asignados' %}">
+            <i class="bi bi-kanban me-1"></i>Mis asignados
+            {% if mis_activos %}
+            <span class="badge bg-primary-subtle text-primary-emphasis ms-1">{{ mis_activos }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+
+<div class="row g-3">
+    {% for col in columnas %}
+    <div class="col-12 col-md-6 col-xl">
+
+        <a href="{% url 'lista_tickets' %}?estado={{ col.valor }}&asignado={{ user.pk }}" class="text-decoration-none">
+            <div class="card shadow-sm stat-card {{ col.clase }} mb-2">
+                <div class="card-body">
+                    <div class="stat-numero">{{ col.total }}</div>
+                    <div class="stat-etiqueta">{{ col.etiqueta }}</div>
+                </div>
+            </div>
+        </a>
+
+        <div class="d-flex flex-column gap-2" style="max-height: 70vh; overflow-y: auto;">
+            {% for ticket in col.tickets %}
+            <a href="{% url 'detalle_ticket' ticket.pk %}" class="card shadow-sm text-decoration-none text-body">
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                        <code>#{{ ticket.pk }}</code>
+                        {% include "tickets/_prioridad_badge.html" %}
+                    </div>
+                    <div class="fw-semibold small mb-2">{{ ticket.titulo|truncatechars:70 }}</div>
+                    {% if ticket.estado != "CERRADO" %}
+                        {% if ticket.estado_sla == "Vencido" %}
+                            <div class="mb-2"><span class="badge bg-danger">SLA vencido</span></div>
+                        {% elif ticket.estado_sla == "Por vencer" %}
+                            <div class="mb-2"><span class="badge bg-warning text-dark">SLA por vencer</span></div>
+                        {% endif %}
+                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-1 text-muted small" style="min-width: 0;">
+                            {% include "accounts/_avatar.html" with usuario=ticket.creado_por version=ticket.creado_por_foto|date:"U" tam=22 %}
+                            <span class="text-truncate">{{ ticket.creado_por.nombre }}</span>
+                        </div>
+                        <small class="text-muted text-nowrap">{{ ticket.creado_en|date:"d M" }}</small>
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="text-center text-muted small py-3">Sin tickets</div>
+            {% endfor %}
+        </div>
+
+        {% if col.hay_mas %}
+        <div class="text-center mt-2">
+            <a href="{% url 'lista_tickets' %}?estado={{ col.valor }}&asignado={{ user.pk }}" class="small">
+                Ver los {{ col.total }}
+            </a>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

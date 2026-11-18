@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
-from apps.tickets import cierre_automatico, emails
+from apps.tickets import cierre_automatico, emails, sla
 
 
 class Command(BaseCommand):
@@ -22,6 +22,12 @@ class Command(BaseCommand):
             type=int,
             default=3600,
             help="Segundos entre revisiones de tickets vencidos.",
+        )
+        parser.add_argument(
+            "--cada-sla",
+            type=int,
+            default=300,
+            help="Segundos entre revisiones de los SLA.",
         )
 
     def marca(self):
@@ -47,17 +53,29 @@ class Command(BaseCommand):
         for error in resultado["errores"]:
             self.stderr.write(f"[{self.marca()}] {error}")
 
+    def tarea_sla(self):
+        resultado = sla.ejecutar()
+        if resultado["avisados"]:
+            self.stdout.write(
+                f"[{self.marca()}] Avisos de SLA enviados: {resultado['avisados']}."
+            )
+        for error in resultado["errores"]:
+            self.stderr.write(f"[{self.marca()}] {error}")
+
     def handle(self, *args, **options):
         cada_correos = max(options["cada_correos"], 1)
         cada_cierre = max(options["cada_cierre"], 60)
+        cada_sla = max(options["cada_sla"], 60)
 
         self.stdout.write(
             f"[{self.marca()}] Tareas en marcha. Correos cada {cada_correos}s, "
-            f"cierre de tickets cada {cada_cierre}s. Ctrl + C para detener."
+            f"cierre de tickets cada {cada_cierre}s, SLA cada {cada_sla}s. "
+            "Ctrl + C para detener."
         )
 
         proxima_correos = 0.0
         proxima_cierre = 0.0
+        proxima_sla = 0.0
 
         try:
             while True:
@@ -77,6 +95,13 @@ class Command(BaseCommand):
                     except Exception as error:
                         self.stderr.write(f"[{self.marca()}] Error en cierre: {error}")
                     proxima_cierre = time.monotonic() + cada_cierre
+
+                if ahora >= proxima_sla:
+                    try:
+                        self.tarea_sla()
+                    except Exception as error:
+                        self.stderr.write(f"[{self.marca()}] Error en SLA: {error}")
+                    proxima_sla = time.monotonic() + cada_sla
 
                 time.sleep(1)
         except KeyboardInterrupt:

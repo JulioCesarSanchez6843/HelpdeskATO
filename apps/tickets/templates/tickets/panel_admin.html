@@ -14,6 +14,22 @@
 
 </div>
 
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link active" href="{% url 'lista_tickets' %}">
+            <i class="bi bi-ticket-perforated me-1"></i>Todos los tickets
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'mis_asignados' %}">
+            <i class="bi bi-kanban me-1"></i>Mis asignados
+            {% if mis_activos %}
+            <span class="badge bg-primary-subtle text-primary-emphasis ms-1">{{ mis_activos }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+
 <div class="row g-3 mb-3">
 
     <div class="col-6 col-md">
@@ -153,124 +169,135 @@
 
 </div>
 
-<form
-    method="get"
-    class="row g-2 mb-3"
->
+<form method="get" class="buscador">
 
-    <div class="col-md-5">
+    <div class="buscador-fila">
 
-        <input
-            type="search"
-            name="q"
-            value="{{ q }}"
-            class="form-control"
-            placeholder="Buscar por título o usuario..."
-        >
-
-    </div>
-
-    <div class="col-md-2">
-
-        <select
-            name="estado"
-            class="form-select"
-            onchange="this.form.submit()"
-        >
-
-            <option value="">
-                Todos los estados
-            </option>
-
-            {% for valor, etiqueta in estados %}
-
-                <option
-                    value="{{ valor }}"
-                    {% if estado_sel == valor %}selected{% endif %}
-                >
-                    {{ etiqueta }}
-                </option>
-
-            {% endfor %}
-
-        </select>
-
-    </div>
-
-    {% if user.es_superadmin %}
-    <div class="col-md-2">
-        <select name="sucursal" class="form-select" onchange="this.form.submit()">
-            <option value="">Todas las sucursales</option>
-            {% for s in sucursales %}
-            <option value="{{ s.pk }}" {% if sucursal_sel == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    {% endif %}
-
-    <div class="col-md-2">
-
-        <select
-            name="area"
-            class="form-select"
-            onchange="this.form.submit()"
-        >
-
-            <option value="">
-                Todas las áreas
-            </option>
-
-            {% for a in areas %}
-
-                <option
-                    value="{{ a.pk }}"
-                    {% if area_sel == a.pk|stringformat:"s" %}selected{% endif %}
-                >
-                    {{ a.nombre }}
-                </option>
-
-            {% endfor %}
-
-        </select>
-
-    </div>
-
-    <div class="col-md-2">
-
-        <select
-            name="categoria"
-            class="form-select"
-            onchange="this.form.submit()"
-        >
-
-            <option value="">
-                Todas las categorías
-            </option>
-
-            {% for c in categorias %}
-
-                <option
-                    value="{{ c.pk }}"
-                    {% if categoria_sel == c.pk|stringformat:"s" %}selected{% endif %}
-                >
-                    {{ c.nombre }}
-                </option>
-
-            {% endfor %}
-
-        </select>
-
-    </div>
-
-    <div class="col-md-1">
+        <div class="buscador-campo">
+            <i class="bi bi-search"></i>
+            <input
+                type="search"
+                name="q"
+                value="{{ q }}"
+                class="form-control"
+                placeholder="Buscar por #, título, usuario, asignado, sucursal, área..."
+            >
+        </div>
 
         <button
-            type="submit"
-            class="btn btn-outline-primary w-100"
+            type="button"
+            class="buscador-toggle {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}activo{% endif %}"
+            data-bs-toggle="collapse"
+            data-bs-target="#panelFiltros"
+            aria-expanded="{% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}true{% else %}false{% endif %}"
+            aria-controls="panelFiltros"
         >
-            Buscar
+            <i class="bi bi-sliders"></i>
+            <span class="buscador-texto">Filtros</span>
+            {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}
+            <span class="buscador-punto"></span>
+            {% endif %}
+            <i class="bi bi-chevron-down buscador-flecha"></i>
         </button>
 
+        <a
+            href="?"
+            class="buscador-limpiar {% if not q and not estado_sel and not prioridad_sel and not asignado_sel and not sucursal_sel and not area_sel and not categoria_sel and not desde %}oculto{% endif %}"
+            title="Limpiar filtros"
+        >
+            <i class="bi bi-eraser"></i>
+        </a>
+
+    </div>
+
+    <div
+        id="panelFiltros"
+        class="collapse {% if estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}show{% endif %}"
+    >
+        <div class="buscador-panel">
+
+            <div>
+                <label>Estado</label>
+                <select name="estado" class="form-select {% if estado_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for valor, etiqueta in estados %}
+                    <option value="{{ valor }}" {% if estado_sel == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Prioridad</label>
+                <select name="prioridad" class="form-select {% if prioridad_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for valor, etiqueta in prioridades %}
+                    <option value="{{ valor }}" {% if prioridad_sel == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                    <option value="sin" {% if prioridad_sel == "sin" %}selected{% endif %}>Sin prioridad</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Ordenar por</label>
+                <select name="orden" class="form-select" onchange="this.form.submit()">
+                    {% for valor, etiqueta in ordenes %}
+                    <option value="{{ valor }}" {% if orden_sel == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Asignado a</label>
+                <select name="asignado" class="form-select {% if asignado_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="sin" {% if asignado_sel == "sin" %}selected{% endif %}>Sin asignar</option>
+                    {% for p in asignados %}
+                    <option value="{{ p.pk }}" {% if asignado_sel == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            {% if user.es_superadmin %}
+            <div>
+                <label>Sucursal</label>
+
+                <select name="sucursal" class="form-select {% if sucursal_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for s in sucursales %}
+                    <option value="{{ s.pk }}" {% if sucursal_sel == s.pk|stringformat:"s" %}selected{% endif %}>{{ s.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div>
+                <label>Área</label>
+                <select name="area" class="form-select {% if area_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for a in areas %}
+                    <option value="{{ a.pk }}" {% if area_sel == a.pk|stringformat:"s" %}selected{% endif %}>{{ a.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Categoría</label>
+                <select name="categoria" class="form-select {% if categoria_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for c in categorias %}
+                    <option value="{{ c.pk }}" {% if categoria_sel == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label>Fecha de creación</label>
+                <input type="text" class="form-control rango-fechas" placeholder="Un día o un rango">
+                <input type="hidden" name="desde" value="{{ desde }}">
+                <input type="hidden" name="hasta" value="{{ hasta }}">
+            </div>
+
+        </div>
     </div>
 
 </form>
@@ -322,7 +349,10 @@
                     </td>
 
                     <td>
-                        {{ ticket.creado_por }}
+                        <div class="d-flex align-items-center gap-2">
+                            {% include "accounts/_avatar.html" with usuario=ticket.creado_por version=ticket.creado_por_foto|date:"U" tam=28 %}
+                            <span>{{ ticket.creado_por }}</span>
+                        </div>
                     </td>
 
                     <td>
@@ -351,7 +381,10 @@
 
                     <td>
                         {% if ticket.asignado_a %}
-                            {{ ticket.asignado_a }}
+                            <div class="d-flex align-items-center gap-2">
+                                {% include "accounts/_avatar.html" with usuario=ticket.asignado_a version=ticket.asignado_a_foto|date:"U" tam=28 %}
+                                <span>{{ ticket.asignado_a }}</span>
+                            </div>
                         {% else %}
                             <em class="text-muted">Sin asignar</em>
                         {% endif %}
@@ -367,6 +400,8 @@
                         {% include "tickets/_prioridad_badge.html" %}
                         {% if ticket.sla_vencido %}
                             <span class="badge bg-danger">SLA vencido</span>
+                        {% elif ticket.estado_sla == "Por vencer" %}
+                            <span class="badge bg-warning text-dark">SLA por vencer</span>
                         {% endif %}
                     </td>
 
@@ -381,7 +416,7 @@
                 <tr>
 
                     <td
-                        colspan="7"
+                        colspan="10"
                         class="text-center text-muted"
                     >
                         No hay tickets con esos filtros.

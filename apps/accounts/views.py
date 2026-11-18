@@ -1,9 +1,12 @@
+import hashlib
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
-from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -20,14 +23,17 @@ from django.contrib.auth.decorators import login_required
 from datetime import timedelta
 
 from django.utils import timezone
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 from apps.actividad.models import Evento
 from apps.actividad.registro import registrar as registrar_evento
 from apps.tickets import emails as correos
-from apps.tickets.models import Notificacion, Ticket
+from apps.tickets.models import ConfiguracionSistema, CorreoPendiente, Notificacion, Ticket
 from apps.tickets.views import _tickets_visibles
 
 from .decorators import admin_required
+from .utilidades import entero_positivo
 from .forms import (
     CambiarPasswordForm,
     FotoPerfilForm,
@@ -42,7 +48,18 @@ from .permisos import (
     quienes_pueden_cambiar,
     usuarios_gestionables as _usuarios_gestionables,
 )
-from apps.catalog.models import Sucursal
+from apps.catalog.models import Area, Puesto, Sucursal
+
+LOGIN_MAX_INTENTOS = 5
+LOGIN_BLOQUEO_SEGUNDOS = 15 * 60
+USUARIOS_POR_PAGINA = 20
+
+def _clave_login(request, correo):
+    huella = hashlib.sha256(
+        f"{request.META.get('REMOTE_ADDR', '')}|{correo.lower()}".encode()
+    ).hexdigest()
+    return f"login-fallos:{huella}"
+
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -52,12 +69,20 @@ def login_view(request):
     contexto = {"next": siguiente}
 
     if request.method == "POST":
+        correo = request.POST.get("correo", "").strip()
+        clave = _clave_login(request, correo)
+        if cache.get(clave, 0) >= LOGIN_MAX_INTENTOS:
+            contexto["error"] = (
+                "Demasiados intentos fallidos. Espera 15 minutos e inténtalo de nuevo."
+            )
+            return render(request, "accounts/login.html", contexto, status=429)
         user = authenticate(
             request,
-            username=request.POST.get("correo", "").strip(),
+            username=correo,
             password=request.POST.get("password", ""),
         )
         if user is not None:
+            cache.delete(clave)
             login(request, user)
             destino_seguro = url_has_allowed_host_and_scheme(
                 siguiente, allowed_hosts={request.get_host()},
@@ -66,6 +91,7 @@ def login_view(request):
             if siguiente and destino_seguro:
                 return redirect(siguiente)
             return redirect(PreferenciasUsuario.de(request.user).url_inicio)
+        cache.set(clave, cache.get(clave, 0) + 1, LOGIN_BLOQUEO_SEGUNDOS)
         contexto["error"] = "Correo o contraseña incorrectos."
 
     return render(request, "accounts/login.html", contexto)
@@ -79,18 +105,95 @@ def logout_view(request):
 @admin_required
 def lista_usuarios(request):
     q = request.GET.get("q", "").strip()
+    rol = request.GET.get("rol", "")
+    estado = request.GET.get("estado", "")
+    area = request.GET.get("area", "")
+    puesto = request.GET.get("puesto", "")
     sucursal = request.GET.get("sucursal", "")
-    usuarios = _usuarios_gestionables(request.user)
+    desde = request.GET.get("desde", "")
+    hasta = request.GET.get("hasta", "")
+
+    usuarios = (
+        _usuarios_gestionables(request.user)
+        .select_related("sucursal", "area", "puesto")
+        .annotate(
+            foto_actualizada=Subquery(
+                FotoPerfil.objects.filter(usuario=OuterRef("pk")).values("actualizada_en")[:1]
+            )
+        )
+    )
+
     if q:
-        usuarios = usuarios.filter(Q(nombre__icontains=q) | Q(correo__icontains=q))
-    if request.user.es_superadmin and sucursal.isdigit():
-        usuarios = usuarios.filter(sucursal_id=int(sucursal))
+        usuarios = usuarios.filter(
+            Q(nombre__icontains=q)
+            | Q(correo__icontains=q)
+            | Q(sucursal__nombre__icontains=q)
+            | Q(area__nombre__icontains=q)
+            | Q(puesto__nombre__icontains=q)
+        )
+
+    if rol in {valor for valor, _ in Usuario.Rol.choices}:
+        usuarios = usuarios.filter(rol=rol)
+    else:
+        rol = ""
+
+    if estado == "activo":
+        usuarios = usuarios.filter(activo=True)
+    elif estado == "inactivo":
+        usuarios = usuarios.filter(activo=False)
+    else:
+        estado = ""
+
+    area_id = entero_positivo(area)
+    if area_id is not None:
+        usuarios = usuarios.filter(area_id=area_id)
+    else:
+        area = ""
+
+    puesto_id = entero_positivo(puesto)
+    if puesto_id is not None:
+        usuarios = usuarios.filter(puesto_id=puesto_id)
+    else:
+        puesto = ""
+
+    sucursal_id = entero_positivo(sucursal) if request.user.es_superadmin else None
+    if sucursal_id is not None:
+        usuarios = usuarios.filter(sucursal_id=sucursal_id)
     else:
         sucursal = ""
+
+    fecha_desde = parse_date(desde) if desde else None
+    fecha_hasta = parse_date(hasta) if hasta else None
+
+    if fecha_desde and fecha_hasta:
+        if fecha_desde > fecha_hasta:
+            fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        usuarios = usuarios.filter(creado_en__date__range=(fecha_desde, fecha_hasta))
+    elif fecha_desde:
+        usuarios = usuarios.filter(creado_en__date=fecha_desde)
+        hasta = ""
+    else:
+        desde = ""
+        hasta = ""
+
+    pagina = Paginator(usuarios, USUARIOS_POR_PAGINA).get_page(request.GET.get("page"))
+    parametros = request.GET.copy()
+    parametros.pop("page", None)
+
     return render(request, "accounts/usuarios.html", {
-        "usuarios": usuarios,
+        "page_obj": pagina,
+        "querystring": parametros.urlencode(),
         "q": q,
+        "rol_sel": rol,
+        "estado_sel": estado,
+        "area_sel": area,
+        "puesto_sel": puesto,
         "sucursal_sel": sucursal,
+        "desde": desde,
+        "hasta": hasta,
+        "roles": Usuario.Rol.choices,
+        "areas": Area.objects.visibles_para(request.user),
+        "puestos": Puesto.objects.visibles_para(request.user),
         "sucursales": Sucursal.objects.all(),
     })
 
@@ -246,6 +349,81 @@ def ajustes(request):
 def inicio(request):
     return redirect(PreferenciasUsuario.de(request.user).url_inicio)
 
+def _inicio_encargado(usuario, ahora):
+    estado = Ticket.Estado
+    vivos = [estado.ABIERTO, estado.EN_PROCESO, estado.EN_ESPERA]
+    abiertos = vivos + [estado.POR_CONFIRMAR]
+    equipo = (
+        Usuario.objects.filter(
+            activo=True,
+            sucursal_id=usuario.sucursal_id,
+            rol__in=[Usuario.Rol.BECARIO, Usuario.Rol.ENCARGADO],
+        )
+        .annotate(
+            activos=Count(
+                "tickets_asignados",
+                filter=Q(tickets_asignados__estado__in=abiertos),
+            ),
+            vencidos=Count(
+                "tickets_asignados",
+                filter=Q(
+                    tickets_asignados__estado__in=vivos,
+                    tickets_asignados__sla_vence_en__lt=ahora,
+                ),
+            ),
+        )
+        .order_by("-activos", "nombre")
+    )
+    return {
+        "equipo": equipo,
+        "actividad": Evento.objects.filter(sucursal_id=usuario.sucursal_id)[:6],
+    }
+
+
+def _inicio_superadmin(ahora):
+    estado = Ticket.Estado
+    vivos = [estado.ABIERTO, estado.EN_PROCESO, estado.EN_ESPERA]
+    abiertos = vivos + [estado.POR_CONFIRMAR]
+    por_sucursal = (
+        Sucursal.objects.defer("logo")
+        .filter(activa=True)
+        .annotate(
+            activos=Count("tickets", filter=Q(tickets__estado__in=abiertos)),
+            sin_asignar=Count(
+                "tickets",
+                filter=Q(
+                    tickets__estado=estado.ABIERTO,
+                    tickets__asignado_a__isnull=True,
+                ),
+            ),
+            vencidos=Count(
+                "tickets",
+                filter=Q(
+                    tickets__estado__in=vivos,
+                    tickets__sla_vence_en__lt=ahora,
+                ),
+            ),
+        )
+        .order_by("-vencidos", "-sin_asignar", "nombre")
+    )
+    personas = Usuario.objects.filter(activo=True).aggregate(
+        total=Count("id"),
+        encargados=Count("id", filter=Q(rol=Usuario.Rol.ENCARGADO)),
+        becarios=Count("id", filter=Q(rol=Usuario.Rol.BECARIO)),
+        usuarios=Count("id", filter=Q(rol=Usuario.Rol.USUARIO)),
+    )
+    correos = CorreoPendiente.objects.aggregate(
+        pendientes=Count("id", filter=Q(estado=CorreoPendiente.Estado.PENDIENTE)),
+        errores=Count("id", filter=Q(estado=CorreoPendiente.Estado.ERROR)),
+    )
+    return {
+        "por_sucursal": por_sucursal,
+        "personas": personas,
+        "correos": correos,
+        "sistema": ConfiguracionSistema.actual(),
+        "actividad": Evento.objects.select_related("sucursal")[:6],
+    }
+
 @login_required
 def panel_inicio(request):
     usuario = request.user
@@ -253,6 +431,10 @@ def panel_inicio(request):
     estado = Ticket.Estado
     tickets = _tickets_visibles(usuario)
     sin_cerrar = ~Q(estado=estado.CERRADO)
+    vivos = [estado.ABIERTO, estado.EN_PROCESO, estado.EN_ESPERA]
+    local = timezone.localtime(ahora)
+    inicio_dia = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    inicio_mes = inicio_dia.replace(day=1)
 
     conteos = tickets.aggregate(
         activos=Count("id", filter=sin_cerrar),
@@ -264,19 +446,55 @@ def panel_inicio(request):
         ),
         mios=Count("id", filter=sin_cerrar & Q(asignado_a=usuario)),
         vencidos=Count(
+            "id", filter=Q(estado__in=vivos, sla_vence_en__lt=ahora)
+        ),
+        por_vencer=Count(
             "id",
             filter=Q(
-                estado__in=[estado.ABIERTO, estado.EN_PROCESO, estado.EN_ESPERA],
-                sla_vence_en__lt=ahora,
+                estado__in=vivos,
+                sla_vence_en__gte=ahora,
+                sla_vence_en__lte=ahora + timedelta(hours=4),
             ),
         ),
+        sin_prioridad=Count("id", filter=Q(estado__in=vivos, prioridad="")),
+        creados_hoy=Count("id", filter=Q(creado_en__gte=inicio_dia)),
+        resueltos_mes=Count("id", filter=Q(resuelto_en__gte=inicio_mes)),
     )
 
-    return render(request, "accounts/inicio.html", {
+    if usuario.es_superadmin:
+        vista = "superadmin"
+    elif usuario.es_encargado:
+        vista = "encargado"
+    elif usuario.es_becario:
+        vista = "becario"
+    else:
+        vista = "usuario"
+
+    if local.hour < 12:
+        saludo = "Buenos días"
+    elif local.hour < 19:
+        saludo = "Buenas tardes"
+    else:
+        saludo = "Buenas noches"
+
+    contexto = {
+        "vista": vista,
+        "saludo": saludo,
         "conteos": conteos,
-        "recientes": tickets.order_by("-creado_en")[:5],
         "pendientes": usuario.notificaciones.filter(leida=False).order_by("-creada_en")[:5],
-    })
+        "sla": [
+            (Ticket.Prioridad(clave).label, horas)
+            for clave, horas in settings.SLA_HORAS.items()
+        ],
+        "reabrir_dias": settings.REABRIR_TICKET_DIAS,
+    }
+
+    if vista == "encargado":
+        contexto.update(_inicio_encargado(usuario, ahora))
+    elif vista == "superadmin":
+        contexto.update(_inicio_superadmin(ahora))
+
+    return render(request, "accounts/inicio.html", contexto)
 
 @login_required
 def foto_usuario(request, pk):

@@ -1,0 +1,18 @@
+<div class="col-12 col-md-auto d-flex gap-2 ms-md-auto">
+    <button type="submit" class="btn btn-primary btn-sm">
+        <i class="bi bi-check2 me-1"></i>Aplicar
+    </button>
+    <button type="button" class="btn btn-outline-secondary btn-sm rep-limpiar" data-prefijo="{{ p }}">
+        <i class="bi bi-eraser me-1"></i>Limpiar
+    </button>
+</div>
+{% if not sin_fechas %}
+<div class="col-12 rep-rapidos">
+    <small class="text-muted me-1">Rango rápido:</small>
+    <button type="button" class="rep-chip" data-prefijo="{{ p }}" data-rango="1">Hoy</button>
+    <button type="button" class="rep-chip" data-prefijo="{{ p }}" data-rango="7">7 días</button>
+    <button type="button" class="rep-chip" data-prefijo="{{ p }}" data-rango="30">30 días</button>
+    <button type="button" class="rep-chip" data-prefijo="{{ p }}" data-rango="mes">Este mes</button>
+    <button type="button" class="rep-chip" data-prefijo="{{ p }}" data-rango="todo">Todo</button>
+</div>
+{% endif %}

@@ -1,0 +1,96 @@
+{% if encuesta %}
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+            <h6 class="card-title mb-2">
+                <i class="bi bi-star-half me-1"></i>
+                {% if ticket.creado_por_id == user.pk %}Tu calificación{% else %}Calificación del usuario{% endif %}
+            </h6>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="estrellas-fijas fs-4">{% include "tickets/_estrellas.html" with valor=encuesta.calificacion %}</span>
+                <span class="text-muted small">{{ encuesta.calificacion }} de 5</span>
+            </div>
+            {% if encuesta.comentario %}
+                <p class="mb-1 fst-italic">«{{ encuesta.comentario|linebreaksbr }}»</p>
+            {% endif %}
+            <small class="text-muted">{{ encuesta.creada_en|date:"d/m/Y H:i" }}</small>
+        </div>
+    </div>
+{% elif puede_calificar %}
+    <div class="card shadow-sm border-0 mb-3 encuesta-card">
+        <div class="card-body d-flex align-items-center justify-content-between gap-3 flex-wrap">
+            <div>
+                <h6 class="mb-0">¿Cómo fue la atención?</h6>
+                <small class="text-muted">Tu opinión nos ayuda a mejorar el soporte.</small>
+            </div>
+            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalEncuesta">
+                <i class="bi bi-star-fill me-1"></i>Calificar
+            </button>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalEncuesta" tabindex="-1" aria-labelledby="tituloEncuesta" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow encuesta-card">
+                <div class="modal-header border-0 pb-0">
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body text-center pt-0 pb-4 px-4">
+                    <div class="encuesta-icono"><i class="bi bi-emoji-smile"></i></div>
+                    <h5 class="mb-1" id="tituloEncuesta">¿Cómo fue la atención?</h5>
+                    <p class="text-muted small mb-3">Ticket #{{ ticket.pk }} — {{ ticket.titulo }}</p>
+
+                    <form method="post" action="{% url 'responder_encuesta' ticket.pk %}">
+                        {% csrf_token %}
+
+                        <div class="estrellas">
+                            {% for n in "54321" %}
+                                <input type="radio" name="calificacion" id="estrella{{ n }}" value="{{ n }}" required>
+                                <label for="estrella{{ n }}" title="{{ n }} de 5"><i class="bi bi-star-fill"></i></label>
+                            {% endfor %}
+                        </div>
+
+                        <div id="textoEstrellas" class="small text-muted mt-1 mb-3" style="min-height: 1.4em;">Toca una estrella</div>
+
+                        <textarea
+                            name="comentario"
+                            class="form-control mb-3"
+                            rows="3"
+                            maxlength="1000"
+                            placeholder="¿Quieres contarnos algo más? (opcional)"
+                        ></textarea>
+
+                        <button type="submit" class="btn btn-primary w-100">Enviar calificación</button>
+                        <button type="button" class="btn btn-link text-muted btn-sm mt-2" data-bs-dismiss="modal">Ahora no</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var modal = document.getElementById("modalEncuesta");
+        document.body.appendChild(modal);
+
+        var textos = {1: "Muy mala", 2: "Mala", 3: "Regular", 4: "Buena", 5: "Excelente"};
+        var salida = document.getElementById("textoEstrellas");
+        modal.querySelectorAll("input[name='calificacion']").forEach(function (radio) {
+            radio.addEventListener("change", function () {
+                salida.textContent = textos[radio.value];
+            });
+        });
+
+        var clave = "encuesta-omitida-{{ ticket.pk }}";
+        var omitida = false;
+        try { omitida = sessionStorage.getItem(clave) === "1"; } catch (e) {}
+
+        modal.addEventListener("hidden.bs.modal", function () {
+            try { sessionStorage.setItem(clave, "1"); } catch (e) {}
+        });
+
+        if (!omitida) {
+            bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+    });
+    </script>
+{% endif %}

@@ -1,13 +1,16 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.dateparse import parse_date
+from apps.accounts.utilidades import entero_positivo
 from django.views.decorators.http import require_POST
 
 from django.db import transaction
 
 from apps.accounts.decorators import admin_required, superadmin_required
+from apps.accounts.utilidades import entero_positivo
 
 from apps.accounts.models import Usuario
 from apps.actividad.models import Evento
@@ -56,16 +59,62 @@ def lista(request, clave):
             messages.error(request, _errores(form))
         return redirect(f"lista_{clave}")
 
+    q = request.GET.get("q", "").strip()
+    sucursal = request.GET.get("sucursal", "")
+    uso = request.GET.get("uso", "")
+    desde = request.GET.get("desde", "")
+    hasta = request.GET.get("hasta", "")
+
     consulta = cfg["modelo"].objects.visibles_para(request.user)
+
+    if q:
+        consulta = consulta.filter(nombre__icontains=q)
+
+    if sucursal == "general":
+        consulta = consulta.filter(sucursal__isnull=True)
+    else:
+        sucursal_id = entero_positivo(sucursal)
+        if sucursal_id is not None:
+            consulta = consulta.filter(sucursal_id=sucursal_id)
+        else:
+            sucursal = ""
+
+    fecha_desde = parse_date(desde) if desde else None
+    fecha_hasta = parse_date(hasta) if hasta else None
+
+    if fecha_desde and fecha_hasta:
+        if fecha_desde > fecha_hasta:
+            fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        consulta = consulta.filter(creado_en__date__range=(fecha_desde, fecha_hasta))
+    elif fecha_desde:
+        consulta = consulta.filter(creado_en__date=fecha_desde)
+        hasta = ""
+    else:
+        desde = ""
+        hasta = ""
+
     for rel in cfg["relaciones"]:
         consulta = consulta.annotate(**{f"n_{rel}": Count(rel, distinct=True)})
+
     registros = list(consulta)
     for registro in registros:
         registro.en_uso = sum(getattr(registro, f"n_{rel}") for rel in cfg["relaciones"])
         registro.editable = _puede_modificar(request.user, registro)
 
+    if uso == "en_uso":
+        registros = [r for r in registros if r.en_uso]
+    elif uso == "sin_uso":
+        registros = [r for r in registros if not r.en_uso]
+    else:
+        uso = ""
+
     return render(request, "catalog/catalogo.html", {
         "registros": registros,
+        "q": q,
+        "sucursal_sel": sucursal,
+        "uso_sel": uso,
+        "desde": desde,
+        "hasta": hasta,
         "titulo": cfg["titulo"],
         "singular": cfg["singular"],
         "descripcion": cfg["descripcion"],
@@ -74,7 +123,6 @@ def lista(request, clave):
         "url_editar": f"editar_{clave}",
         "url_eliminar": f"eliminar_{clave}",
     })
-
 
 @admin_required
 @require_POST
@@ -114,11 +162,49 @@ def eliminar(request, clave, pk):
 
 @superadmin_required
 def lista_sucursales(request):
+    q = request.GET.get("q", "").strip()
+    estado = request.GET.get("estado", "")
+    usuarios = request.GET.get("usuarios", "")
+    tickets = request.GET.get("tickets", "")
+
     sucursales = Sucursal.objects.defer("logo").annotate(
         n_usuarios=Count("usuarios", distinct=True),
         n_tickets=Count("tickets", distinct=True),
     )
-    return render(request, "catalog/sucursales.html", {"sucursales": sucursales})
+
+    if q:
+        sucursales = sucursales.filter(
+            Q(nombre__icontains=q) | Q(codigo_distribuidor__icontains=q)
+        )
+
+    if estado == "activa":
+        sucursales = sucursales.filter(activa=True)
+    elif estado == "inactiva":
+        sucursales = sucursales.filter(activa=False)
+    else:
+        estado = ""
+
+    if usuarios == "con":
+        sucursales = sucursales.filter(n_usuarios__gt=0)
+    elif usuarios == "sin":
+        sucursales = sucursales.filter(n_usuarios=0)
+    else:
+        usuarios = ""
+
+    if tickets == "con":
+        sucursales = sucursales.filter(n_tickets__gt=0)
+    elif tickets == "sin":
+        sucursales = sucursales.filter(n_tickets=0)
+    else:
+        tickets = ""
+
+    return render(request, "catalog/sucursales.html", {
+        "sucursales": sucursales,
+        "q": q,
+        "estado_sel": estado,
+        "usuarios_sel": usuarios,
+        "tickets_sel": tickets,
+    })
 
 
 @superadmin_required

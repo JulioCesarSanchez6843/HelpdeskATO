@@ -8,6 +8,8 @@ urlpatterns = [
 
     path("nuevo/", views.nuevo_ticket, name="nuevo_ticket"),
 
+    path("mis-asignados/", views.mis_asignados, name="mis_asignados"),
+
     path("adjuntos/<int:pk>/", views.ver_adjunto, name="ver_adjunto"),
 
     path("confirmar/<str:token>/", views.confirmar_cierre, name="confirmar_cierre"),
@@ -50,9 +52,13 @@ urlpatterns = [
 
     path("<int:pk>/reabrir/", views.reabrir_ticket, name="reabrir_ticket"),
 
+    path("<int:pk>/encuesta/", views.responder_encuesta, name="responder_encuesta"),
+
     path("<int:pk>/comentar/", views.comentar_ticket, name="comentar_ticket"),
 
     path("<int:pk>/tomar/", views.tomar_ticket, name="tomar_ticket"),
 
     path("<int:pk>/asignar/", views.asignar_ticket, name="asignar_ticket"),
+
+    path("<int:pk>/escalar/", views.escalar_ticket, name="escalar_ticket"),
 ]

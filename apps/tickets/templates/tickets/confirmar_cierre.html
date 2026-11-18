@@ -25,6 +25,11 @@
           {% if resultado == "confirmado" %}
             <h4 class="card-title text-success">¡Gracias! Ticket cerrado</h4>
             <p class="mb-3">Confirmaste que el ticket #{{ ticket.pk }} quedó resuelto.</p>
+            <div class="alert alert-warning d-flex align-items-center gap-2 py-2">
+              <i class="bi bi-star-fill"></i>
+              <span>¿Nos ayudas calificando la atención? Toma 10 segundos.</span>
+            </div>
+            <a href="{% url 'detalle_ticket' ticket.pk %}" class="btn btn-warning me-2">Calificar la atención</a>
           {% elif resultado == "rechazado" %}
             <h4 class="card-title">Ticket reabierto</h4>
             <p class="mb-3">

@@ -12,6 +12,8 @@ from apps.accounts.models import Usuario
 from apps.catalog.models import Sucursal
 from apps.dashboard.views import _escribir, _estilizar_encabezado, _local
 
+from apps.accounts.utilidades import entero_positivo, foto_de
+
 from .models import Evento
 
 EVENTOS_POR_PAGINA = 25
@@ -25,12 +27,17 @@ def _eventos_visibles(usuario):
         return eventos
     if usuario.es_encargado:
         return eventos.filter(sucursal_id=usuario.sucursal_id)
-    return eventos.filter(
+    eventos = eventos.filter(
         Q(actor=usuario)
         | Q(afectado=usuario)
         | Q(ticket__creado_por=usuario)
         | Q(ticket__resuelto_por=usuario)
     ).distinct()
+    if not usuario.es_personal:
+        eventos = eventos.exclude(tipo=Evento.Tipo.TICKET_ESCALADO).exclude(
+            detalle__startswith="Nota interna: "
+        )
+    return eventos
 
 
 def _personas(usuario):
@@ -65,22 +72,23 @@ def _aplicar_filtros(request, eventos):
         tipo = ""
 
     persona = request.GET.get("persona", "")
-    if usuario.es_admin and persona.isdigit():
-        eventos = eventos.filter(
-            Q(actor_id=int(persona)) | Q(afectado_id=int(persona))
-        )
+    persona_id = entero_positivo(persona) if usuario.es_admin else None
+    if persona_id is not None:
+        eventos = eventos.filter(Q(actor_id=persona_id) | Q(afectado_id=persona_id))
     else:
         persona = ""
 
     sucursal = request.GET.get("sucursal", "")
-    if usuario.es_superadmin and sucursal.isdigit():
-        eventos = eventos.filter(sucursal_id=int(sucursal))
+    sucursal_id = entero_positivo(sucursal) if usuario.es_superadmin else None
+    if sucursal_id is not None:
+        eventos = eventos.filter(sucursal_id=sucursal_id)
     else:
         sucursal = ""
 
     ticket = request.GET.get("ticket", "").strip().lstrip("#")
-    if ticket.isdigit():
-        eventos = eventos.filter(ticket_numero=int(ticket))
+    ticket_numero = entero_positivo(ticket)
+    if ticket_numero is not None:
+        eventos = eventos.filter(ticket_numero=ticket_numero)
     else:
         ticket = ""
 
@@ -129,7 +137,13 @@ def lista(request):
     )
     resumen = _resumen(eventos) if request.user.es_admin else []
 
-    pagina = Paginator(eventos, EVENTOS_POR_PAGINA).get_page(request.GET.get("page"))
+    pagina = Paginator(
+        eventos.select_related("actor", "afectado").annotate(
+            actor_foto=foto_de("actor_id"),
+            afectado_foto=foto_de("afectado_id"),
+        ),
+        EVENTOS_POR_PAGINA,
+    ).get_page(request.GET.get("page"))
     parametros = request.GET.copy()
     parametros.pop("page", None)
 

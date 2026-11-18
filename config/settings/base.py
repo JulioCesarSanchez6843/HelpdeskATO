@@ -53,6 +53,13 @@ DATABASES = {
     }
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "cache_tabla",
+    }
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -85,7 +92,7 @@ EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
 EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-EMAIL_TIMEOUT = 10
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=30, cast=int)
 
 if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
     _backend_por_defecto = "django.core.mail.backends.smtp.EmailBackend"
@@ -103,6 +110,7 @@ SITE_URL = config("SITE_URL", default="http://localhost:8000").rstrip("/")
 CIERRE_TOKEN_MAX_AGE = 60 * 60 * 24 * config("CIERRE_TOKEN_DIAS", default=7, cast=int)
 REABRIR_TICKET_DIAS = config("REABRIR_TICKET_DIAS", default=7, cast=int)
 SLA_HORAS = {"CRITICA": 4, "ALTA": 8, "MEDIA": 24, "BAJA": 72}
+SLA_AVISO_PORCENTAJE = config("SLA_AVISO_PORCENTAJE", default=75, cast=int)
 PASSWORD_RESET_TIMEOUT = 60 * 60
 ACCESO_TOKEN_MAX_AGE = 60 * 60 * 24 * config("ACCESO_TOKEN_DIAS", default=2, cast=int)
 

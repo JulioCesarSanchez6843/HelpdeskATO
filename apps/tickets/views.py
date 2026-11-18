@@ -3,25 +3,59 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Case, Count, F, IntegerField, Prefetch, Q, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 from django.contrib.auth import login
 
 from apps.accounts.decorators import admin_required, personal_required
+from apps.accounts.models import Usuario
+from apps.accounts.utilidades import entero_positivo, foto_de
 from apps.catalog.models import Area, Categoria, Sucursal
 
 from . import acceso, services
-from .forms import AsignarTicketForm, TicketForm, TicketGestionForm
+from .forms import (
+    AdjuntosComentarioForm,
+    AsignarTicketForm,
+    EscalarTicketForm,
+    TicketForm,
+    TicketGestionForm,
+)
 from .imagenes import ImagenInvalida
-from .models import AdjuntoTicket, Ticket
+from .models import AdjuntoTicket, EncuestaSatisfaccion, Historial, Ticket
 
 
 ESTADOS_VALIDOS = {valor for valor, _ in Ticket.Estado.choices}
+PRIORIDADES_VALIDAS = {valor for valor, _ in Ticket.Prioridad.choices}
 
 TICKETS_POR_PAGINA = 15
+
+LIMITE_COLUMNA_KANBAN = 20
+
+ESTADOS_EN_COLA = (
+    Ticket.Estado.ABIERTO,
+    Ticket.Estado.EN_PROCESO,
+    Ticket.Estado.EN_ESPERA,
+)
+
+ORDENES_COLA = (
+    ("sla", "SLA: por vencer primero"),
+    ("prioridad", "Prioridad: más alta primero"),
+    ("recientes", "Más recientes"),
+)
+ORDENES_VALIDOS = {valor for valor, _ in ORDENES_COLA}
+
+CLASES_ESTADO_KANBAN = {
+    Ticket.Estado.ABIERTO: "stat-abiertos",
+    Ticket.Estado.EN_PROCESO: "stat-proceso",
+    Ticket.Estado.EN_ESPERA: "stat-total",
+    Ticket.Estado.POR_CONFIRMAR: "stat-confirmar",
+    Ticket.Estado.CERRADO: "stat-cerrados",
+}
+
 
 def _tickets_visibles(usuario):
     tickets = Ticket.objects.select_related(
@@ -36,6 +70,33 @@ def _tickets_visibles(usuario):
 
     return tickets.filter(creado_por=usuario)
 
+def _ordenar_cola(tickets, orden):
+    if orden == "recientes":
+        return tickets.order_by("-creado_en", "-id")
+
+    rango_prioridad = Case(
+        When(prioridad=Ticket.Prioridad.CRITICA, then=Value(0)),
+        When(prioridad=Ticket.Prioridad.ALTA, then=Value(1)),
+        When(prioridad=Ticket.Prioridad.MEDIA, then=Value(2)),
+        When(prioridad=Ticket.Prioridad.BAJA, then=Value(3)),
+        default=Value(4),
+        output_field=IntegerField(),
+    )
+    grupo_cola = Case(
+        When(estado__in=ESTADOS_EN_COLA, then=Value(0)),
+        default=Value(1),
+        output_field=IntegerField(),
+    )
+    tickets = tickets.annotate(
+        grupo_cola=grupo_cola,
+        rango_prioridad=rango_prioridad,
+    )
+    sla = F("sla_vence_en").asc(nulls_last=True)
+
+    if orden == "prioridad":
+        return tickets.order_by("grupo_cola", "rango_prioridad", sla, "creado_en", "id")
+
+    return tickets.order_by("grupo_cola", sla, "rango_prioridad", "creado_en", "id")
 
 @login_required
 def lista_tickets(request):
@@ -61,15 +122,33 @@ def lista_tickets(request):
     estado = request.GET.get("estado", "")
     area = request.GET.get("area", "")
     categoria = request.GET.get("categoria", "")
+    prioridad = request.GET.get("prioridad", "")
+    asignado = request.GET.get("asignado", "")
     sucursal = request.GET.get("sucursal", "")
+    desde = request.GET.get("desde", "")
+    hasta = request.GET.get("hasta", "")
 
-    tickets = base
+    tickets = base.annotate(
+        creado_por_foto=foto_de("creado_por_id"),
+        asignado_a_foto=foto_de("asignado_a_id"),
+    )
 
     if q:
-        filtro = Q(titulo__icontains=q)
+        filtro = (
+            Q(titulo__icontains=q)
+            | Q(area__nombre__icontains=q)
+            | Q(categoria__nombre__icontains=q)
+        )
+
+        if q.lstrip("#").isdigit():
+            filtro |= Q(pk=int(q.lstrip("#")))
 
         if es_personal:
-            filtro |= Q(creado_por__nombre__icontains=q)
+            filtro |= (
+                Q(creado_por__nombre__icontains=q)
+                | Q(sucursal__nombre__icontains=q)
+                | Q(asignado_a__nombre__icontains=q)
+            )
 
         tickets = tickets.filter(filtro)
 
@@ -78,20 +157,59 @@ def lista_tickets(request):
     else:
         estado = ""
 
-    if es_personal and area.isdigit():
-        tickets = tickets.filter(area_id=int(area))
+    if es_personal and prioridad == "sin":
+        tickets = tickets.filter(prioridad="")
+    elif es_personal and prioridad in PRIORIDADES_VALIDAS:
+        tickets = tickets.filter(prioridad=prioridad)
+    else:
+        prioridad = ""
+
+    asignado_id = entero_positivo(asignado) if es_personal else None
+    if es_personal and asignado == "sin":
+        tickets = tickets.filter(asignado_a__isnull=True)
+    elif asignado_id is not None:
+        tickets = tickets.filter(asignado_a_id=asignado_id)
+    else:
+        asignado = ""
+
+    area_id = entero_positivo(area) if es_personal else None
+    if area_id is not None:
+        tickets = tickets.filter(area_id=area_id)
     else:
         area = ""
 
-    if es_personal and categoria.isdigit():
-        tickets = tickets.filter(categoria_id=int(categoria))
+    categoria_id = entero_positivo(categoria) if es_personal else None
+    if categoria_id is not None:
+        tickets = tickets.filter(categoria_id=categoria_id)
     else:
         categoria = ""
 
-    if request.user.es_superadmin and sucursal.isdigit():
-        tickets = tickets.filter(sucursal_id=int(sucursal))
+    sucursal_id = entero_positivo(sucursal) if request.user.es_superadmin else None
+    if sucursal_id is not None:
+        tickets = tickets.filter(sucursal_id=sucursal_id)
     else:
         sucursal = ""
+
+    fecha_desde = parse_date(desde) if desde else None
+    fecha_hasta = parse_date(hasta) if hasta else None
+
+    if fecha_desde and fecha_hasta:
+        if fecha_desde > fecha_hasta:
+            fecha_desde, fecha_hasta = fecha_hasta, fecha_desde
+        tickets = tickets.filter(creado_en__date__range=(fecha_desde, fecha_hasta))
+    elif fecha_desde:
+        tickets = tickets.filter(creado_en__date=fecha_desde)
+        hasta = ""
+    else:
+        desde = ""
+        hasta = ""
+
+    orden = request.GET.get("orden", "")
+    if orden not in ORDENES_VALIDOS:
+        orden = "sla"
+
+    if es_personal:
+        tickets = _ordenar_cola(tickets, orden)
 
     pagina = Paginator(tickets, TICKETS_POR_PAGINA).get_page(request.GET.get("page"))
 
@@ -106,14 +224,30 @@ def lista_tickets(request):
         "area_sel": area,
         "categoria_sel": categoria,
         "sucursal_sel": sucursal,
+        "desde": desde,
+        "hasta": hasta,
         "estados": Ticket.Estado.choices,
+        "prioridad_sel": prioridad,
+        "asignado_sel": asignado,
+        "prioridades": Ticket.Prioridad.choices,
         "querystring": parametros.urlencode(),
+        "orden_sel": orden,
+        "ordenes": ORDENES_COLA,
     }
 
     if es_personal:
         contexto["areas"] = Area.objects.visibles_para(request.user)
         contexto["categorias"] = Categoria.objects.visibles_para(request.user)
         contexto["sucursales"] = Sucursal.objects.all()
+        contexto["asignados"] = Usuario.objects.filter(
+            Q(pk__in=base.filter(asignado_a__isnull=False).values("asignado_a_id"))
+            | Q(pk=request.user.pk)
+        ).order_by("nombre")
+        contexto["mis_activos"] = (
+            base.filter(asignado_a=request.user)
+            .exclude(estado=Ticket.Estado.CERRADO)
+            .count()
+        )
         plantilla = "tickets/panel_admin.html"
     else:
         plantilla = "tickets/mis_tickets.html"
@@ -121,9 +255,64 @@ def lista_tickets(request):
     return render(request, plantilla, contexto)
 
 
+@personal_required
+def mis_asignados(request):
+    propios = _tickets_visibles(request.user).filter(asignado_a=request.user)
+
+    conteos = {
+        fila["estado"]: fila["total"]
+        for fila in propios.values("estado").annotate(total=Count("id")).order_by()
+    }
+
+    con_foto = propios.annotate(creado_por_foto=foto_de("creado_por_id"))
+
+    columnas = []
+    for valor, etiqueta in Ticket.Estado.choices:
+        if valor == Ticket.Estado.CERRADO:
+            orden = ("-cerrado_en", "-id")
+        else:
+            orden = (F("sla_vence_en").asc(nulls_last=True), "creado_en")
+
+        tickets = list(
+            con_foto.filter(estado=valor).order_by(*orden)[:LIMITE_COLUMNA_KANBAN]
+        )
+        total = conteos.get(valor, 0)
+        columnas.append(
+            {
+                "valor": valor,
+                "etiqueta": etiqueta,
+                "clase": CLASES_ESTADO_KANBAN[valor],
+                "total": total,
+                "tickets": tickets,
+                "hay_mas": total > len(tickets),
+            }
+        )
+
+    mis_activos = sum(
+        total for valor, total in conteos.items() if valor != Ticket.Estado.CERRADO
+    )
+
+    return render(
+        request,
+        "tickets/mis_asignados.html",
+        {
+            "columnas": columnas,
+            "total": sum(conteos.values()),
+            "mis_activos": mis_activos,
+        },
+    )
+
+
 @login_required
 def detalle_ticket(request, pk):
-    ticket = get_object_or_404(_tickets_visibles(request.user), pk=pk)
+    ticket = get_object_or_404(
+        _tickets_visibles(request.user).annotate(
+            creado_por_foto=foto_de("creado_por_id"),
+            asignado_a_foto=foto_de("asignado_a_id"),
+            resuelto_por_foto=foto_de("resuelto_por_id"),
+        ),
+        pk=pk,
+    )
 
     es_personal = request.user.es_personal
 
@@ -169,22 +358,43 @@ def detalle_ticket(request, pk):
 
             return redirect("detalle_ticket", pk=pk)
 
-        comentarios = ticket.comentarios.select_related("autor")
-    comentarios = ticket.comentarios.select_related("autor")
+    comentarios = (
+        ticket.comentarios.select_related("autor")
+        .annotate(autor_foto=foto_de("autor_id"))
+        .prefetch_related(
+            Prefetch("adjuntos", queryset=AdjuntoTicket.objects.defer("contenido"))
+        )
+    )
     if not es_personal:
         comentarios = comentarios.filter(interno=False)
+
+    historial = ticket.historial.select_related("usuario").annotate(
+        usuario_foto=foto_de("usuario_id")
+    )
+    if not es_personal:
+        historial = historial.exclude(tipo=Historial.Tipo.ESCALADO)
+
+    encuesta = EncuestaSatisfaccion.objects.filter(ticket=ticket).first()
 
     return render(
         request,
         "tickets/detalle_ticket.html",
         {
             "ticket": ticket,
+            "encuesta": encuesta,
+            "puede_calificar": (
+                encuesta is None
+                and ticket.estado == Ticket.Estado.CERRADO
+                and ticket.creado_por_id == request.user.pk
+            ),
             "comentarios": comentarios,
             "puede_comentar": ticket.estado != Ticket.Estado.CERRADO,
             "puede_reabrir": ticket.dentro_de_plazo_reapertura,
             "reabrible_hasta": ticket.reabrible_hasta,
-            "historial": ticket.historial.select_related("usuario"),
-            "adjuntos": ticket.adjuntos.defer("contenido"),
+            "historial": historial,
+            "adjuntos": ticket.adjuntos.filter(comentario__isnull=True).defer(
+                "contenido"
+            ),
             "form_gestion": form_gestion,
             "puede_responder_cierre": (
                 ticket.esperando_confirmacion
@@ -193,14 +403,25 @@ def detalle_ticket(request, pk):
             "form_asignar": (
                 AsignarTicketForm(ticket=ticket) if request.user.es_admin else None
             ),
+            "form_escalar": (
+                EscalarTicketForm(ticket=ticket, actor=request.user)
+                if (
+                    request.user.es_encargado
+                    and not request.user.es_superadmin
+                    and ticket.estado != Ticket.Estado.CERRADO
+                )
+                else None
+            ),
             "puede_tomar": (
                 es_personal
+                and not request.user.es_superadmin
                 and ticket.asignado_a_id is None
                 and ticket.estado != Ticket.Estado.CERRADO
                 and request.user.sucursal_id == ticket.sucursal_id
             ),
         },
     )
+
 
 @login_required
 @require_POST
@@ -209,19 +430,40 @@ def comentar_ticket(request, pk):
     contenido = request.POST.get("contenido", "").strip()[:2000]
     interno = request.user.es_personal and request.POST.get("interno") == "on"
 
+    formulario = AdjuntosComentarioForm(request.POST, request.FILES)
+
     if ticket.estado == Ticket.Estado.CERRADO:
         messages.error(request, "El ticket está cerrado y ya no admite mensajes.")
     elif len(contenido) < 2:
         messages.error(request, "Escribe un mensaje.")
+    elif not formulario.is_valid():
+        for errores in formulario.errors.values():
+            for error in errores:
+                messages.error(request, error)
     else:
-        with transaction.atomic():
-            services.agregar_comentario(ticket, request.user, contenido, interno)
-        messages.success(request, "Mensaje enviado.")
+        try:
+            with transaction.atomic():
+                services.agregar_comentario(
+                    ticket,
+                    request.user,
+                    contenido,
+                    interno,
+                    formulario.cleaned_data["imagenes"],
+                )
+        except ImagenInvalida as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, "Mensaje enviado.")
 
     return redirect("detalle_ticket", pk=pk)
 
+
 @login_required
 def nuevo_ticket(request):
+    if request.user.es_personal:
+        messages.error(request, "Solo los usuarios pueden crear tickets.")
+        return redirect("lista_tickets")
+
     if request.method == "POST":
         form = TicketForm(request.POST, request.FILES)
 
@@ -256,7 +498,10 @@ def nuevo_ticket(request):
 
 @login_required
 def ver_adjunto(request, pk):
-    adjunto = get_object_or_404(AdjuntoTicket, pk=pk)
+    adjuntos = AdjuntoTicket.objects.all()
+    if not request.user.es_personal:
+        adjuntos = adjuntos.exclude(comentario__interno=True)
+    adjunto = get_object_or_404(adjuntos, pk=pk)
 
     get_object_or_404(_tickets_visibles(request.user), pk=adjunto.ticket_id)
 
@@ -267,6 +512,7 @@ def ver_adjunto(request, pk):
     respuesta["X-Content-Type-Options"] = "nosniff"
     respuesta["Cache-Control"] = "private, max-age=3600"
     return respuesta
+
 
 def _aplicar_respuesta(ticket_pk, actor, accion, motivo):
     with transaction.atomic():
@@ -342,6 +588,7 @@ def confirmar_cierre(request, token):
 
     return render(request, "tickets/confirmar_cierre.html", {"ticket": ticket})
 
+
 def acceso_directo(request, token):
     usuario, ticket_pk = acceso.datos_desde_token(token)
 
@@ -353,6 +600,7 @@ def acceso_directo(request, token):
         login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")
 
     return redirect("detalle_ticket", pk=ticket_pk)
+
 
 def marcar_en_proceso(request, token):
     ticket, admin = services.ticket_y_admin_desde_token(token)
@@ -431,6 +679,7 @@ def forzar_cierre(request, pk):
 
     return redirect("detalle_ticket", pk=pk)
 
+
 @personal_required
 @require_POST
 def tomar_ticket(request, pk):
@@ -439,7 +688,9 @@ def tomar_ticket(request, pk):
     with transaction.atomic():
         ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
 
-        if request.user.sucursal_id != ticket.sucursal_id:
+        if request.user.es_superadmin:
+            messages.error(request, "El super administrador no toma tickets, solo los asigna.")
+        elif request.user.sucursal_id != ticket.sucursal_id:
             messages.error(request, "Solo puedes tomar tickets de tu sucursal.")
         elif ticket.estado == Ticket.Estado.CERRADO:
             messages.error(request, "Ese ticket ya está cerrado.")
@@ -476,6 +727,41 @@ def asignar_ticket(request, pk):
             messages.success(request, "Ticket actualizado.")
 
     return redirect("detalle_ticket", pk=pk)
+
+
+@personal_required
+@require_POST
+def escalar_ticket(request, pk):
+    get_object_or_404(_tickets_visibles(request.user), pk=pk)
+
+    with transaction.atomic():
+        ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
+
+        if not request.user.es_encargado or request.user.es_superadmin:
+            messages.error(request, "Solo un encargado puede escalar tickets.")
+        elif ticket.estado == Ticket.Estado.CERRADO:
+            messages.error(request, "El ticket está cerrado.")
+        else:
+            form = EscalarTicketForm(
+                request.POST, ticket=ticket, actor=request.user
+            )
+            if form.is_valid():
+                services.escalar_ticket(
+                    ticket,
+                    request.user,
+                    form.cleaned_data["destino"],
+                    form.cleaned_data["motivo"],
+                    form.cleaned_data["prioridad"],
+                )
+                messages.success(request, "Ticket escalado.")
+            else:
+                mensaje = " ".join(
+                    e for errores in form.errors.values() for e in errores
+                )
+                messages.error(request, mensaje or "Revisa los datos de la escalada.")
+
+    return redirect("detalle_ticket", pk=pk)
+
 
 @login_required
 def lista_notificaciones(request):
@@ -521,6 +807,7 @@ def notificaciones_leer_todas(request):
 
     return redirect("lista_notificaciones")
 
+
 @login_required
 @require_POST
 def reabrir_ticket(request, pk):
@@ -543,5 +830,39 @@ def reabrir_ticket(request, pk):
         else:
             services.reabrir_ticket(ticket, request.user, motivo)
             messages.success(request, "Ticket reabierto.")
+
+    return redirect("detalle_ticket", pk=pk)
+
+@login_required
+@require_POST
+def responder_encuesta(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk, creado_por=request.user)
+
+    if ticket.estado != Ticket.Estado.CERRADO:
+        messages.error(request, "Solo puedes calificar un ticket cerrado.")
+        return redirect("detalle_ticket", pk=pk)
+
+    try:
+        calificacion = int(request.POST.get("calificacion", ""))
+    except ValueError:
+        calificacion = 0
+
+    if calificacion < 1 or calificacion > 5:
+        messages.error(request, "Elige de 1 a 5 estrellas.")
+        return redirect("detalle_ticket", pk=pk)
+
+    _, creada = EncuestaSatisfaccion.objects.get_or_create(
+        ticket=ticket,
+        defaults={
+            "calificacion": calificacion,
+            "comentario": request.POST.get("comentario", "").strip()[:1000],
+            "atendido_por": ticket.resuelto_por,
+        },
+    )
+
+    if creada:
+        messages.success(request, "¡Gracias por tu opinión!")
+    else:
+        messages.info(request, "Este ticket ya fue calificado.")
 
     return redirect("detalle_ticket", pk=pk)

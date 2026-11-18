@@ -133,30 +133,39 @@ def procesar_pendientes(limite=50):
             )
             .order_by("id")[:limite]
         )
-        for correo in lote:
-            ahora = timezone.now()
-            try:
-                mensaje = pickle.loads(bytes(correo.contenido))
-                mail.get_connection().send_messages([mensaje])
-                correo.estado = CorreoPendiente.Estado.ENVIADO
-                correo.enviado_en = ahora
-                correo.error = ""
-                enviados += 1
-            except Exception as error:
-                correo.intentos += 1
-                correo.error = str(error)[:500]
-                if correo.intentos >= MAX_INTENTOS:
-                    correo.estado = CorreoPendiente.Estado.ERROR
-                else:
-                    correo.proximo_intento = ahora + timedelta(
-                        minutes=2 ** correo.intentos
+        if not lote:
+            return 0, 0
+        conexion = mail.get_connection()
+        try:
+            for correo in lote:
+                ahora = timezone.now()
+                try:
+                    mensaje = pickle.loads(bytes(correo.contenido))
+                    conexion.open()
+                    conexion.send_messages([mensaje])
+                    correo.estado = CorreoPendiente.Estado.ENVIADO
+                    correo.enviado_en = ahora
+                    correo.error = ""
+                    enviados += 1
+                except Exception as error:
+                    correo.intentos += 1
+                    correo.error = str(error)[:500]
+                    if correo.intentos >= MAX_INTENTOS:
+                        correo.estado = CorreoPendiente.Estado.ERROR
+                    else:
+                        correo.proximo_intento = ahora + timedelta(
+                            minutes=2 ** correo.intentos
+                        )
+                    fallidos += 1
+                    logger.exception(
+                        "No se pudo enviar el correo «%s» a %s.",
+                        correo.asunto, correo.destinatarios,
                     )
-                fallidos += 1
-                logger.exception(
-                    "No se pudo enviar el correo «%s» a %s.",
-                    correo.asunto, correo.destinatarios,
-                )
-            correo.save()
+                    correo.save()
+                    break
+                correo.save()
+        finally:
+            conexion.close()
     return enviados, fallidos
 
 
