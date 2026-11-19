@@ -40,11 +40,6 @@ class TicketAdmin(admin.ModelAdmin):
 class AdjuntoTicketAdmin(admin.ModelAdmin):
     list_display = ("id", "ticket", "nombre", "tamano", "subido_por", "subido_en")
     readonly_fields = ("tamano", "subido_en")
-    exclude = ("contenido",)
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).defer("contenido")
-
 
 admin.site.register(Historial)
 admin.site.register(Comentario)
@@ -56,4 +51,4 @@ class CorreoPendienteAdmin(admin.ModelAdmin):
     list_display = ("asunto", "destinatarios", "estado", "intentos", "creado_en", "enviado_en")
     list_filter = ("estado",)
     search_fields = ("asunto", "destinatarios")
-    readonly_fields = ("contenido",)
+    readonly_fields = ("cuerpo_texto", "cuerpo_html")

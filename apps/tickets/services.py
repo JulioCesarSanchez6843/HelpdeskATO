@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core import signing
+from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
@@ -130,17 +131,18 @@ def poner_en_proceso(ticket, admin):
 
 
 def guardar_adjuntos(ticket, archivos, autor, comentario=None):
-    for archivo in archivos:
-        nombre, tipo, contenido = imagenes.procesar(archivo)
-        AdjuntoTicket.objects.create(
+    procesadas = [imagenes.procesar(archivo) for archivo in archivos]
+    for nombre, tipo, contenido in procesadas:
+        adjunto = AdjuntoTicket(
             ticket=ticket,
             comentario=comentario,
             nombre=nombre,
             tipo_contenido=tipo,
-            contenido=contenido,
             tamano=len(contenido),
             subido_por=autor,
         )
+        adjunto.archivo.save(nombre, ContentFile(contenido), save=False)
+        adjunto.save()
 
 
 def registrar_creacion(ticket, autor):
@@ -168,10 +170,10 @@ def registrar_creacion(ticket, autor):
     )
 
     contexto = _contexto(ticket)
-    imagenes_ticket = [
-        (f"imagen{a.pk}", bytes(a.contenido), a.tipo_contenido)
-        for a in ticket.adjuntos.all()
-    ]
+    imagenes_ticket = []
+    for a in ticket.adjuntos.all():
+        with a.archivo.open("rb") as f:
+            imagenes_ticket.append((f"imagen{a.pk}", f.read(), a.tipo_contenido))
     mensajes = emails.construir(
         _sin(admins, autor),
         f"Nuevo ticket #{ticket.pk}: {ticket.titulo}",

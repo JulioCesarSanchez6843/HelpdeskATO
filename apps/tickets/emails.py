@@ -1,5 +1,4 @@
 import logging
-import pickle
 from datetime import timedelta
 from email.mime.image import MIMEImage
 from pathlib import Path
@@ -11,7 +10,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from apps.accounts.models import PreferenciasUsuario
 
-from .models import CorreoPendiente
+from .models import AdjuntoTicket, CorreoPendiente
 
 from . import acceso
 
@@ -97,6 +96,9 @@ def construir(
                     mensaje.attach(_imagen_inline(cid, contenido, tipo))
         for nombre, contenido, tipo in adjuntos:
             mensaje.attach(nombre, contenido, tipo)
+        mensaje.cuerpo_html = html or ""
+        mensaje.cids = [cid for cid, _, _ in imagenes] if html else []
+        mensaje.con_firma = bool(firma and html)
         mensajes.append(mensaje)
     return mensajes
 
@@ -114,12 +116,44 @@ def enviar_tras_commit(mensajes):
             CorreoPendiente(
                 destinatarios=", ".join(mensaje.to)[:500],
                 asunto=mensaje.subject[:250],
-                contenido=pickle.dumps(mensaje),
+                cuerpo_texto=mensaje.body,
+                cuerpo_html=getattr(mensaje, "cuerpo_html", ""),
+                imagenes=getattr(mensaje, "cids", []),
+                con_firma=getattr(mensaje, "con_firma", False),
             )
             for mensaje in mensajes
         ]
     )
 
+def _reconstruir(correo):
+    mensaje = mail.EmailMultiAlternatives(
+        subject=correo.asunto,
+        body=correo.cuerpo_texto,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[d.strip() for d in correo.destinatarios.split(",") if d.strip()],
+    )
+    if not correo.cuerpo_html:
+        return mensaje
+    mensaje.attach_alternative(correo.cuerpo_html, "text/html")
+    ids = [int(cid[6:]) for cid in correo.imagenes if cid.startswith("imagen")]
+    inline = []
+    for adjunto in AdjuntoTicket.objects.filter(pk__in=ids):
+        try:
+            with adjunto.archivo.open("rb") as archivo:
+                inline.append(
+                    (f"imagen{adjunto.pk}", archivo.read(), adjunto.tipo_contenido)
+                )
+        except (FileNotFoundError, ValueError):
+            continue
+    if correo.con_firma:
+        firma = _firma()
+        if firma:
+            inline.append(firma)
+    if inline:
+        mensaje.mixed_subtype = "related"
+        for cid, contenido, tipo in inline:
+            mensaje.attach(_imagen_inline(cid, contenido, tipo))
+    return mensaje
 
 def procesar_pendientes(limite=50):
     enviados = 0
@@ -140,7 +174,7 @@ def procesar_pendientes(limite=50):
             for correo in lote:
                 ahora = timezone.now()
                 try:
-                    mensaje = pickle.loads(bytes(correo.contenido))
+                    mensaje = _reconstruir(correo)
                     conexion.open()
                     conexion.send_messages([mensaje])
                     correo.estado = CorreoPendiente.Estado.ENVIADO

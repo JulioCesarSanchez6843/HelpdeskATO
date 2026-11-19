@@ -5,9 +5,10 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db.models import Count, F, OuterRef, Q, Subquery
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -300,15 +301,21 @@ def cambiar_estado_usuario(request, pk):
 def mi_perfil(request):
     if request.method == "POST":
         if request.POST.get("accion") == "eliminar":
-            FotoPerfil.objects.filter(usuario=request.user).delete()
+            foto = FotoPerfil.objects.filter(usuario=request.user).first()
+            if foto:
+                foto.archivo.delete(save=False)
+                foto.delete()
             messages.success(request, "Foto de perfil eliminada.")
             return redirect("mi_perfil")
         form = FotoPerfilForm(request.POST, request.FILES)
         if form.is_valid():
-            FotoPerfil.objects.update_or_create(
-                usuario=request.user,
-                defaults={"contenido": form.cleaned_data["foto"]},
+            foto, _ = FotoPerfil.objects.get_or_create(usuario=request.user)
+            if foto.archivo:
+                foto.archivo.delete(save=False)
+            foto.archivo.save(
+                "foto.jpg", ContentFile(form.cleaned_data["foto"]), save=False
             )
+            foto.save()
             messages.success(request, "Foto de perfil actualizada.")
             return redirect("mi_perfil")
     else:
@@ -316,7 +323,7 @@ def mi_perfil(request):
     logos_sucursales = []
     if request.user.es_superadmin:
         logos_sucursales = list(
-            Sucursal.objects.defer("logo").filter(
+            Sucursal.objects.filter(
                 activa=True, logo_actualizado_en__isnull=False
             )
         )
@@ -385,8 +392,7 @@ def _inicio_superadmin(ahora):
     vivos = [estado.ABIERTO, estado.EN_PROCESO, estado.EN_ESPERA]
     abiertos = vivos + [estado.POR_CONFIRMAR]
     por_sucursal = (
-        Sucursal.objects.defer("logo")
-        .filter(activa=True)
+        Sucursal.objects.filter(activa=True)
         .annotate(
             activos=Count("tickets", filter=Q(tickets__estado__in=abiertos)),
             sin_asignar=Count(
@@ -499,7 +505,12 @@ def panel_inicio(request):
 @login_required
 def foto_usuario(request, pk):
     foto = get_object_or_404(FotoPerfil, usuario_id=pk)
-    respuesta = HttpResponse(bytes(foto.contenido), content_type="image/jpeg")
+    if not foto.archivo:
+        raise Http404
+    try:
+        respuesta = FileResponse(foto.archivo.open("rb"), content_type="image/jpeg")
+    except FileNotFoundError:
+        raise Http404
     respuesta["X-Content-Type-Options"] = "nosniff"
     respuesta["Cache-Control"] = "private, max-age=3600"
     return respuesta

@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
@@ -182,13 +184,17 @@ class SolicitudCambioPassword(models.Model):
             f"Cambio de contraseña de {self.usuario} pedido por "
             f"{self.solicitante} ({self.get_estado_display()})"
         )
+
+def ruta_foto(instancia, nombre):
+    return f"fotos/{instancia.usuario_id}/{uuid.uuid4().hex}.jpg"
+
 class FotoPerfil(models.Model):
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="foto_perfil",
     )
-    contenido = models.BinaryField()
+    archivo = models.FileField(upload_to=ruta_foto, null=True, blank=True)
     actualizada_en = models.DateTimeField(auto_now=True)
 
     def __str__(self):
