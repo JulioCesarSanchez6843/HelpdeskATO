@@ -56,11 +56,12 @@ class TicketListSerializer(serializers.ModelSerializer):
     creado_por = serializers.SerializerMethodField()
     asignado_a = serializers.SerializerMethodField()
     sla_vencido = serializers.BooleanField(read_only=True)
+    asignado_a_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Ticket
         fields = [
-            "id", "titulo", "estado", "estado_display",
+            "id", "titulo", "estado", "estado_display", "asignado_a_id",
             "prioridad", "prioridad_display", "categoria", "sucursal",
             "creado_por", "asignado_a", "creado_en",
             "sla_vence_en", "sla_vencido",
