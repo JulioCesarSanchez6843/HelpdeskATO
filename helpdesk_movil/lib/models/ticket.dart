@@ -62,11 +62,15 @@ class Permisos {
   final bool puedeComentar;
   final bool puedeTomar;
   final bool puedeAsignar;
+  final bool puedeReabrir;
+  final bool puedeResponderCierre;
 
   Permisos.fromJson(Map<String, dynamic> j)
       : puedeComentar = j['puede_comentar'] as bool? ?? false,
         puedeTomar = j['puede_tomar'] as bool? ?? false,
-        puedeAsignar = j['puede_asignar'] as bool? ?? false;
+        puedeAsignar = j['puede_asignar'] as bool? ?? false,
+        puedeReabrir = j['puede_reabrir'] as bool? ?? false,
+        puedeResponderCierre = j['puede_responder_cierre'] as bool? ?? false;
 }
 
 class TicketDetalle {

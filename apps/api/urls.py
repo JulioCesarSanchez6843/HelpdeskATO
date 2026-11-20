@@ -14,5 +14,7 @@ urlpatterns = [
     path("tickets/<int:pk>/asignar/", views_gestion.ticket_asignar, name="api_ticket_asignar"),
     path("tickets/<int:pk>/opciones/", views_gestion.ticket_opciones, name="api_ticket_opciones"),
     path("tickets/<int:pk>/gestion/", views_gestion.ticket_gestion, name="api_ticket_gestion"),
+    path("tickets/<int:pk>/responder-cierre/", views_gestion.ticket_responder_cierre, name="api_ticket_responder_cierre"),
+    path("tickets/<int:pk>/reabrir/", views_gestion.ticket_reabrir, name="api_ticket_reabrir"),
     path("tickets/<int:pk>/gestion-opciones/", views_gestion.ticket_gestion_opciones, name="api_ticket_gestion_opciones"),
 ]

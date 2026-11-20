@@ -150,6 +150,14 @@ class ApiService {
       _det(await _post('/tickets/$id/asignar/',
           {'asignado_a': asignadoA, 'prioridad': prioridad}));
 
+  static Future<TicketDetalle> responderCierre(int id, String accion,
+          {String motivo = ''}) async =>
+      _det(await _post('/tickets/$id/responder-cierre/',
+          {'accion': accion, 'motivo': motivo}));
+
+  static Future<TicketDetalle> reabrir(int id, String motivo) async =>
+      _det(await _post('/tickets/$id/reabrir/', {'motivo': motivo}));
+
   static Future<Map<String, dynamic>> gestionOpciones(int id) async =>
       _decode(await _get('/tickets/$id/gestion-opciones/')) as Map<String, dynamic>;
 

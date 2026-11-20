@@ -9,7 +9,7 @@ from apps.tickets import services
 from apps.tickets.forms import AsignarTicketForm, TicketForm, TicketGestionForm
 from apps.tickets.imagenes import ImagenInvalida
 from apps.tickets.models import Ticket
-from apps.tickets.views import _tickets_visibles
+from apps.tickets.views import _aplicar_respuesta, _tickets_visibles
 
 from .views import _detalle, _error
 
@@ -168,3 +168,37 @@ def ticket_gestion_opciones(request, pk):
             },
         }
     )
+
+@api_view(["POST"])
+def ticket_responder_cierre(request, pk):
+    ticket = get_object_or_404(Ticket, pk=pk, creado_por=request.user)
+    accion = str(request.data.get("accion") or "")
+    motivo = str(request.data.get("motivo") or "").strip()[:1000]
+
+    resultado = _aplicar_respuesta(ticket.pk, request.user, accion, motivo)
+
+    if resultado == "ya_respondido":
+        return _error("Este ticket ya no está esperando confirmación.", status.HTTP_409_CONFLICT)
+    if resultado == "invalida":
+        return _error("Acción no válida.")
+    return _detalle(request, pk)
+
+
+@api_view(["POST"])
+def ticket_reabrir(request, pk):
+    get_object_or_404(_tickets_visibles(request.user), pk=pk)
+    motivo = str(request.data.get("motivo") or "").strip()[:1000]
+
+    if len(motivo) < 5:
+        return _error("Escribe el motivo de la reapertura (mínimo 5 caracteres).")
+
+    with transaction.atomic():
+        ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
+
+        if ticket.estado != Ticket.Estado.CERRADO:
+            return _error("Solo se puede reabrir un ticket cerrado.")
+        if not ticket.dentro_de_plazo_reapertura:
+            return _error("El plazo para reabrir este ticket ya venció.")
+        services.reabrir_ticket(ticket, request.user, motivo)
+
+    return _detalle(request, pk)

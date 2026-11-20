@@ -138,6 +138,128 @@ class _DetalleScreenState extends State<DetalleScreen> {
     );
   }
 
+  Future<String?> _pedirTexto({
+    required String titulo,
+    required String etiqueta,
+    required String boton,
+    int minimo = 0,
+  }) async {
+    final ctrl = TextEditingController();
+    String? error;
+    final r = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(titulo),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 1000,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              labelText: etiqueta,
+              errorText: error,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Config.rojo),
+              onPressed: () {
+                final v = ctrl.text.trim();
+                if (v.length < minimo) {
+                  setD(() => error = 'Escribe al menos $minimo caracteres.');
+                  return;
+                }
+                Navigator.pop(ctx, v);
+              },
+              child: Text(boton),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
+    return r;
+  }
+
+  Future<void> _confirmarCierre() async {
+    await _accion(
+      () => ApiService.responderCierre(widget.ticketId, 'confirmar'),
+      ok: 'Gracias, el ticket quedó cerrado.',
+    );
+  }
+
+  Future<void> _rechazarCierre() async {
+    final motivo = await _pedirTexto(
+      titulo: 'El problema no se resolvió',
+      etiqueta: 'Cuéntanos qué sigue fallando (opcional)',
+      boton: 'Enviar',
+    );
+    if (motivo == null) return;
+    await _accion(
+      () => ApiService.responderCierre(widget.ticketId, 'rechazar', motivo: motivo),
+      ok: 'Listo, el ticket volvió a «En proceso».',
+    );
+  }
+
+  Future<void> _reabrir() async {
+    final motivo = await _pedirTexto(
+      titulo: 'Reabrir ticket',
+      etiqueta: 'Motivo de la reapertura',
+      boton: 'Reabrir',
+      minimo: 5,
+    );
+    if (motivo == null) return;
+    await _accion(
+      () => ApiService.reabrir(widget.ticketId, motivo),
+      ok: 'Ticket reabierto.',
+    );
+  }
+
+  Widget _bannerCierre() => Card(
+        margin: const EdgeInsets.only(top: 10),
+        color: Colors.teal.withValues(alpha: 0.12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('¿Se resolvió tu problema?',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              const Text(
+                  'El equipo de soporte marcó este ticket como resuelto. '
+                  'Confírmalo para cerrarlo o avísanos si sigue fallando.'),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _enviando ? null : _confirmarCierre,
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('Sí, se resolvió'),
+                    style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _enviando ? null : _rechazarCierre,
+                    icon: const Icon(Icons.replay),
+                    label: const Text('No se resolvió'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+
   bool _puedeGestionar(TicketDetalle d) =>
       _esPersonal && d.ticket.estado != 'CERRADO';
 
@@ -326,7 +448,8 @@ class _DetalleScreenState extends State<DetalleScreen> {
           ),
         ),
       ),
-      if (p.puedeTomar || p.puedeAsignar || _puedeGestionar(d)) ...[
+      if (p.puedeResponderCierre) _bannerCierre(),
+      if (p.puedeTomar || p.puedeAsignar || p.puedeReabrir || _puedeGestionar(d)) ...[
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -338,6 +461,12 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 icon: const Icon(Icons.assignment_ind),
                 label: const Text('Tomar ticket'),
                 style: FilledButton.styleFrom(backgroundColor: Config.rojo),
+              ),
+            if (p.puedeReabrir)
+              OutlinedButton.icon(
+                onPressed: _enviando ? null : _reabrir,
+                icon: const Icon(Icons.lock_open),
+                label: const Text('Reabrir ticket'),
               ),
             if (_puedeGestionar(d))
               OutlinedButton.icon(
