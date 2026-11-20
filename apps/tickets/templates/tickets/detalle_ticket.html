@@ -413,4 +413,27 @@
 
 </div>
 
+<script>
+    (function () {
+        var estado = document.getElementById("id_estado");
+        var motivo = document.getElementById("id_motivo_espera");
+        if (!estado || !motivo) return;
+        var bloque = motivo.closest(".mb-3");
+        var inicial = true;
+
+        function actualizar() {
+            var enEspera = estado.value === "EN_ESPERA";
+            bloque.hidden = !enEspera;
+            motivo.disabled = !enEspera;
+            if (enEspera && !inicial && !motivo.value) {
+                motivo.focus();
+            }
+            inicial = false;
+        }
+
+        estado.addEventListener("change", actualizar);
+        actualizar();
+    })();
+</script>
+
 {% endblock %}

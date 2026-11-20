@@ -691,7 +691,7 @@ def tomar_ticket(request, pk):
         ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
 
         if request.user.es_superadmin:
-            messages.error(request, "El super administrador no toma tickets, solo los asigna.")
+            messages.error(request, "El super administrador no toma tickets, solo recibe los que le escalan.")
         elif request.user.sucursal_id != ticket.sucursal_id:
             messages.error(request, "Solo puedes tomar tickets de tu sucursal.")
         elif ticket.estado == Ticket.Estado.CERRADO:

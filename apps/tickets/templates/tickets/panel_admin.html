@@ -22,7 +22,7 @@
     </li>
     <li class="nav-item">
         <a class="nav-link" href="{% url 'mis_asignados' %}">
-            <i class="bi bi-kanban me-1"></i>Mis asignados
+            <i class="bi bi-kanban me-1"></i>{% if user.es_superadmin %}Mis escalados{% else %}Mis asignados{% endif %}
             {% if mis_activos %}
             <span class="badge bg-primary-subtle text-primary-emphasis ms-1">{{ mis_activos }}</span>
             {% endif %}

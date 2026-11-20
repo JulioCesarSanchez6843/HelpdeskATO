@@ -40,6 +40,9 @@
     {% if user.is_authenticated %}
     <nav class="navbar navbar-tollocan px-3">
         <div class="d-flex align-items-center">
+            <button class="navbar-toggler me-3 d-md-none" type="button" id="btnMenu" aria-label="Mostrar u ocultar menú">
+                <i class="bi bi-layout-sidebar-inset fs-5"></i>
+            </button>
             <a class="navbar-brand d-flex align-items-center" href="{% url 'inicio' %}">
                 <img src="{% static 'img/Logo_tollocan.png' %}" alt="Logo Tollocan" class="logo-navbar me-3">
                 <span class="marca-texto d-none d-lg-flex">
@@ -56,9 +59,10 @@
             <div class="dropdown d-flex align-items-center">
                 <a class="link-barra d-flex align-items-center text-decoration-none" href="{% url 'mi_perfil' %}" title="Mi perfil">
                     {% if foto_version %}
-                    <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-nav">
+                    <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-nav" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                    <span class="avatar-nav avatar-nav-iniciales av-{{ user.avatar_color }}" hidden>{{ user.iniciales }}</span>
                     {% else %}
-                    <span class="avatar-nav avatar-nav-iniciales">{{ user.iniciales }}</span>
+                    <span class="avatar-nav avatar-nav-iniciales av-{{ user.avatar_color }}">{{ user.iniciales }}</span>
                     {% endif %}
                     <span class="ms-2 d-none d-sm-inline">{{ user.nombre }}</span>
                 </a>
@@ -80,13 +84,11 @@
                     </li>
                 </ul>
             </div>
-            <button class="navbar-toggler me-3 d-md-none" type="button" id="btnMenu" aria-label="Mostrar u ocultar menú">
-                <i class="bi bi-list fs-3"></i>
-            </button>
             {% if sucursal_actual %}
             <div class="sucursal-nav" title="{{ sucursal_actual.nombre }}">
                 {% if sucursal_actual.logo_actualizado_en %}
-                <img src="{% url 'logo_sucursal' sucursal_actual.pk %}?v={{ sucursal_actual.logo_actualizado_en|date:'U' }}" alt="{{ sucursal_actual.nombre }}" class="logo-sucursal-nav">
+                <img src="{% url 'logo_sucursal' sucursal_actual.pk %}?v={{ sucursal_actual.logo_actualizado_en|date:'U' }}" alt="{{ sucursal_actual.nombre }}" class="logo-sucursal-nav" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                <span class="sucursal-nombre" hidden>{{ sucursal_actual.nombre }}</span>
                 {% else %}
                 <span class="sucursal-nombre d-none d-sm-inline">{{ sucursal_actual.nombre }}</span>
                 {% endif %}

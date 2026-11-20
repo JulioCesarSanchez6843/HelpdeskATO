@@ -154,11 +154,7 @@
                         </div>
                     </td>
                     <td>
-                        {% if usuario.es_admin %}
-                            <span class="badge bg-primary">{{ usuario.get_rol_display }}</span>
-                        {% else %}
-                            <span class="badge bg-secondary">{{ usuario.get_rol_display }}</span>
-                        {% endif %}
+                        <span class="badge badge-rol-{{ usuario.rol|lower }}">{{ usuario.get_rol_display }}</span>
                     </td>
                     <td>{{ usuario.sucursal|default:"—" }}</td>
                     <td>{{ usuario.area|default:"—" }}</td>

@@ -41,6 +41,28 @@
     letter-spacing: 0.3px;
 }
 
+.navbar-tollocan .boton-usuario-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    color: var(--barra-texto);
+    border: 1px solid rgba(var(--barra-texto-rgb), 0.3);
+    border-radius: 0.6rem;
+}
+
+.navbar-tollocan .boton-usuario-nav:hover {
+    background: rgba(var(--barra-texto-rgb), 0.1);
+}
+
+.navbar-tollocan .boton-usuario-nav:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(var(--tollocan-icono-rgb), 0.35);
+}
+
 .navbar-tollocan .marca-texto {
     flex-direction: column;
     justify-content: center;
@@ -371,7 +393,7 @@
     height: 100%;
     border: 4px solid #ffffff;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--tollocan-icono), var(--tollocan-rojo-oscuro));
+    background: linear-gradient(135deg, var(--av-1, var(--tollocan-icono)), var(--av-2, var(--tollocan-rojo-oscuro)));
     color: #ffffff;
     font-size: 2.75rem;
     font-weight: 700;
@@ -601,6 +623,26 @@ a > .card:hover {
     padding: 0.45em 0.8em;
     border-radius: 999px;
     font-weight: 600;
+}
+
+.badge.badge-rol-superadmin {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+.badge.badge-rol-encargado {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.badge.badge-rol-becario {
+    background-color: #ccfbf1;
+    color: #115e59;
+}
+
+.badge.badge-rol-usuario {
+    background-color: #e5e7eb;
+    color: #374151;
 }
 
 .dropdown-menu {
@@ -1284,7 +1326,7 @@ a > .card:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, var(--tollocan-icono), var(--tollocan-rojo-oscuro));
+    background: linear-gradient(135deg, var(--av-1, var(--tollocan-icono)), var(--av-2, var(--tollocan-rojo-oscuro)));
     color: #ffffff;
     font-weight: 700;
     font-size: calc(var(--tam, 36px) * 0.4);
@@ -1297,12 +1339,23 @@ a > .card:hover {
     opacity: 0.65;
 }
 
+.av-0 { --av-1: #2563eb; --av-2: #1d4ed8; }
+.av-1 { --av-1: #7c3aed; --av-2: #6d28d9; }
+.av-2 { --av-1: #0f766e; --av-2: #115e59; }
+.av-3 { --av-1: #b45309; --av-2: #92400e; }
+.av-4 { --av-1: #be185d; --av-2: #9d174d; }
+.av-5 { --av-1: #4338ca; --av-2: #3730a3; }
+.av-6 { --av-1: #0e7490; --av-2: #155e75; }
+.av-7 { --av-1: #475569; --av-2: #334155; }
+.av-8 { --av-1: #a21caf; --av-2: #86198f; }
+.av-9 { --av-1: #0369a1; --av-2: #075985; }
+
 .avatar-nav-iniciales {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.2);
-    color: var(--barra-texto);
+    background: linear-gradient(135deg, var(--av-1, rgba(255, 255, 255, 0.2)), var(--av-2, rgba(255, 255, 255, 0.2)));
+    color: #ffffff;
     font-weight: 700;
     font-size: 0.9rem;
 }
@@ -1380,4 +1433,70 @@ a > .card:hover {
     height: 100%;
     background: #f5b301;
     border-radius: 999px;
+}
+
+@media (max-width: 767.98px) {
+    .navbar-tollocan {
+        flex-wrap: nowrap;
+    }
+
+    .navbar-tollocan .navbar-brand {
+        margin-right: 0;
+    }
+
+    .navbar-tollocan .link-barra.me-4 {
+        margin-right: 0.75rem !important;
+    }
+
+    .navbar-tollocan .navbar-toggler.ms-3 {
+        margin-left: 0.5rem !important;
+    }
+
+    .navbar-tollocan .navbar-toggler.me-3 {
+        margin-right: 0.5rem !important;
+    }
+
+    .avatar-nav {
+        width: 34px;
+        height: 34px;
+    }
+
+    .sucursal-nombre {
+        max-width: 110px;
+        font-size: 1.1rem;
+        letter-spacing: 0.04em;
+    }
+
+    .contenido-app > .container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        margin-top: 1rem !important;
+    }
+
+    .contenido-app h3,
+    .contenido-app .h3 {
+        font-size: 1.35rem;
+    }
+
+    .contenido-app .d-flex.justify-content-between.align-items-center.mb-3 {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+
+    .card > .table {
+        display: block;
+        overflow-x: auto;
+    }
+
+    .table {
+        font-size: 0.875rem;
+    }
+
+    .table > :not(caption) > * > * {
+        padding: 0.5rem 0.6rem;
+    }
 }
