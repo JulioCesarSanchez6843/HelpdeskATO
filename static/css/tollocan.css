@@ -662,6 +662,104 @@ a > .card:hover {
     .mascota-flotante { animation: none; }
 }
 
+.mascota-viva {
+    position: relative;
+    flex: 0 0 auto;
+    width: 220px;
+    padding-top: 2.6rem;
+}
+
+.mascota-escena {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 0.9;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    animation: mascota-flotar 4s ease-in-out infinite;
+}
+
+.mascota-capa {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
+    opacity: 0;
+    transform: scale(0.9) rotate(-4deg);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events: none;
+}
+
+.mascota-capa.activa {
+    opacity: 1;
+    transform: none;
+}
+
+.mascota-capa.pop {
+    animation: mascota-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes mascota-pop {
+    0% { transform: scale(0.85) rotate(-6deg); }
+    60% { transform: scale(1.06) rotate(2deg); }
+    100% { transform: none; }
+}
+
+.mascota-globo {
+    position: absolute;
+    bottom: calc(100% - 2.5rem);
+    left: 50%;
+    z-index: 3;
+    width: max-content;
+    max-width: 230px;
+    padding: 0.45rem 0.8rem;
+    background: #fff;
+    color: #212529;
+    border: 2px solid #2f7bff;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.15);
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(0.8);
+    transform-origin: 50% 100%;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.mascota-globo::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-right: 2px solid #2f7bff;
+    border-bottom: 2px solid #2f7bff;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.mascota-globo.visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+}
+
+@media (max-width: 575.98px) {
+    .mascota-viva { width: 170px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mascota-escena,
+    .mascota-capa.pop { animation: none; }
+    .mascota-capa,
+    .mascota-globo { transition: opacity 0.2s ease; }
+}
+
 .vista-previa-barra {
     --vp-barra: #2f2f2f;
     --vp-texto: #ffffff;

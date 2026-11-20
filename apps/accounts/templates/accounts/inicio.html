@@ -8,7 +8,6 @@
 <style>
     .inicio { max-width: 960px; margin: 0 auto 2rem; }
     .inicio-hero { display: flex; align-items: center; gap: 2rem; padding: 1.5rem 2rem; background: #fff; border-radius: 1rem; border-top: 4px solid var(--tollocan-rojo); box-shadow: 0 1px 3px rgba(16, 24, 40, .08), 0 8px 24px rgba(16, 24, 40, .06); }
-    .inicio-mascota { flex: 0 0 auto; width: 220px; height: auto; }
     .inicio-texto { flex: 1 1 auto; min-width: 0; }
     .inicio-fecha { color: #6c757d; font-size: .9rem; }
     .inicio-fecha::first-letter { text-transform: uppercase; }
@@ -37,7 +36,6 @@
 
     @media (max-width: 575.98px) {
         .inicio-hero { flex-direction: column; text-align: center; padding: 1.25rem 1rem; }
-        .inicio-mascota { width: 170px; }
         .inicio-acciones { justify-content: center; }
         .inicio-burbuja::before { left: calc(50% - 8px); }
     }
@@ -46,7 +44,21 @@
 <div class="inicio">
 
     <section class="inicio-hero">
-        <img src="{% static 'img/Mascota.png' %}" alt="Mascota de soporte técnico" class="mascota-flotante inicio-mascota">
+        <div class="mascota-viva" id="mascota-viva"
+             data-base="{% static 'img/mascota/' %}"
+             data-nombre="{{ user.nombre }}"
+             data-saludo="{{ saludo }}"
+             data-vista="{{ vista }}"
+             data-activos="{{ conteos.activos|default:0 }}"
+             data-vencidos="{{ conteos.vencidos|default:0 }}"
+             data-sin-asignar="{{ conteos.sin_asignar|default:0 }}"
+             data-por-confirmar="{{ conteos.por_confirmar|default:0 }}">
+            <div class="mascota-globo" aria-hidden="true"><span class="mascota-globo-texto"></span></div>
+            <div class="mascota-escena" title="¡Tócame!">
+                <img src="{% static 'img/mascota/Mascota.png' %}" alt="Mascota de soporte técnico" class="mascota-capa mascota-capa-a activa">
+                <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="" aria-hidden="true" class="mascota-capa mascota-capa-b">
+            </div>
+        </div>
         <div class="inicio-texto">
             <div class="inicio-fecha">{% now "l j \d\e F \d\e Y" %}</div>
             <h1 class="inicio-saludo">{{ saludo }}, {{ user.nombre }}</h1>
@@ -121,5 +133,7 @@
     {% endif %}
 
 </div>
+
+<script src="{% static 'js/mascota.js' %}?v=1"></script>
 
 {% endblock %}
