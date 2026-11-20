@@ -45,10 +45,14 @@
                 {% if not user.es_maestro or foto_version %}
                 <div class="perfil-acciones">
                     {% if not user.es_maestro %}
+                    {% if user.password_solicitada_en %}
+                    <span class="btn btn-outline-secondary btn-sm disabled"><i class="bi bi-hourglass-split me-1"></i>Solicitud enviada</span>
+                    {% else %}
                     <form method="post" action="{% url 'solicitar_cambio_password' %}" class="m-0">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-key me-1"></i>Cambiar contraseña</button>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-key me-1"></i>Solicitar cambio de contraseña</button>
                     </form>
+                    {% endif %}
                     {% endif %}
                     {% if foto_version %}
                     <form method="post" class="m-0">

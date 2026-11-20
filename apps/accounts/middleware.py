@@ -8,7 +8,11 @@ class CambioPasswordObligatorioMiddleware:
 
     def __call__(self, request):
         usuario = request.user
-        if usuario.is_authenticated and usuario.debe_cambiar_password:
+        if (
+            usuario.is_authenticated
+            and usuario.es_maestro
+            and usuario.debe_cambiar_password
+        ):
             permitidas = {reverse("cambiar_password"), reverse("logout")}
             if request.path not in permitidas:
                 return redirect("cambiar_password")

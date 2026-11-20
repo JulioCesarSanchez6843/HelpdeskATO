@@ -62,3 +62,11 @@ def quienes_pueden_cambiar(objetivo):
         return candidatos.filter(maestro | superadmin)
     encargados = Q(rol=Usuario.Rol.ENCARGADO, sucursal_id=objetivo.sucursal_id)
     return candidatos.filter(maestro | superadmin | encargados)
+
+def solicitudes_password_pendientes(actor):
+    return (
+        usuarios_gestionables(actor)
+        .filter(password_solicitada_en__isnull=False, activo=True)
+        .exclude(pk=actor.pk)
+        .order_by("password_solicitada_en")
+    )

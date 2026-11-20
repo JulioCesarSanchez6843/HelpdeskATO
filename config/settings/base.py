@@ -124,12 +124,9 @@ CIERRE_TOKEN_MAX_AGE = 60 * 60 * 24 * config("CIERRE_TOKEN_DIAS", default=7, cas
 REABRIR_TICKET_DIAS = config("REABRIR_TICKET_DIAS", default=7, cast=int)
 SLA_HORAS = {"CRITICA": 4, "ALTA": 8, "MEDIA": 24, "BAJA": 72}
 SLA_AVISO_PORCENTAJE = config("SLA_AVISO_PORCENTAJE", default=75, cast=int)
-PASSWORD_RESET_TIMEOUT = 60 * 60
 ACCESO_TOKEN_MAX_AGE = 60 * 60 * 24 * config("ACCESO_TOKEN_DIAS", default=2, cast=int)
 
-PASSWORD_APROBACION_MAX_AGE = 60 * 60 * 24 * config(
-    "PASSWORD_APROBACION_DIAS", default=3, cast=int
-)
+CLAVE_PASSWORDS = config("CLAVE_PASSWORDS", default="")
 
 LOGGING = {
     "version": 1,

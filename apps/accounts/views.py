@@ -3,7 +3,6 @@ import hashlib
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
-from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
@@ -11,12 +10,7 @@ from django.db.models import Count, F, OuterRef, Q, Subquery
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
-from django.utils.encoding import force_bytes
-from django.utils.http import (
-    url_has_allowed_host_and_scheme,
-    urlsafe_base64_decode,
-    urlsafe_base64_encode,
-)
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from django.contrib.auth.decorators import login_required
@@ -39,7 +33,6 @@ from .forms import (
     CambiarPasswordForm,
     FotoPerfilForm,
     PreferenciasForm,
-    RecuperarPasswordForm,
     UsuarioCrearForm,
     UsuarioEditarForm,
 )
@@ -47,6 +40,7 @@ from .models import FotoPerfil, PreferenciasUsuario, Usuario
 from .permisos import (
     puede_cambiar_password,
     quienes_pueden_cambiar,
+    solicitudes_password_pendientes,
     usuarios_gestionables as _usuarios_gestionables,
 )
 from apps.catalog.models import Area, Puesto, Sucursal
@@ -234,9 +228,8 @@ def editar_usuario(request, pk):
             usuario = form.save()
             nueva = form.nueva_password
             if nueva:
-                usuario.set_password(nueva)
-                usuario.debe_cambiar_password = True
-                usuario.save(update_fields=["password", "debe_cambiar_password"])
+                usuario.asignar_password(nueva)
+                usuario.save(update_fields=["password", "password_cifrada", "password_solicitada_en"])
                 registrar_evento(
                     Evento.Tipo.PASSWORD_CAMBIADO,
                     request.user,
@@ -265,6 +258,8 @@ def editar_usuario(request, pk):
         "form": form, "titulo": f"Editar usuario — {usuario.nombre}",
         "es_el_mismo": es_el_mismo,
         "sin_permiso_password": not es_el_mismo and not puede_password,
+        "mostrar_password": puede_password,
+        "password_actual": usuario.password_visible if puede_password else "",
     })
 
 
@@ -493,6 +488,9 @@ def panel_inicio(request):
             for clave, horas in settings.SLA_HORAS.items()
         ],
         "reabrir_dias": settings.REABRIR_TICKET_DIAS,
+        "solicitudes_password": (
+            solicitudes_password_pendientes(usuario) if usuario.es_admin else []
+        ),
     }
 
     if vista == "encargado":
@@ -517,13 +515,22 @@ def foto_usuario(request, pk):
 
 @login_required
 def cambiar_password(request):
+    if not request.user.es_maestro:
+        messages.info(
+            request,
+            "Tu contraseña la cambia tu encargado. Envía la solicitud desde tu perfil.",
+        )
+        return redirect("mi_perfil")
     if request.method == "POST":
         form = CambiarPasswordForm(request.user, request.POST)
         if form.is_valid():
-            era_obligatorio = request.user.debe_cambiar_password
-            usuario = form.save()
+            usuario = form.save(commit=False)
+            usuario.asignar_password(form.cleaned_data["new_password1"])
             usuario.debe_cambiar_password = False
-            usuario.save(update_fields=["debe_cambiar_password"])
+            usuario.save(update_fields=[
+                "password", "password_cifrada", "password_solicitada_en",
+                "debe_cambiar_password",
+            ])
             update_session_auth_hash(request, usuario)
             registrar_evento(
                 Evento.Tipo.PASSWORD_PROPIO,
@@ -532,113 +539,57 @@ def cambiar_password(request):
                 detalle="Cambió su propia contraseña.",
             )
             messages.success(request, "Contraseña actualizada.")
-            return redirect("mi_perfil" if era_obligatorio else "lista_tickets")
+            return redirect("mi_perfil")
     else:
         form = CambiarPasswordForm(request.user)
     return render(request, "accounts/cambiar_password.html", {"form": form})
+
 
 @login_required
 @require_POST
 def solicitar_cambio_password(request):
     solicitante = request.user
-    reciente = Evento.objects.filter(
-        tipo=Evento.Tipo.PASSWORD_SOLICITADO,
-        actor=solicitante,
-        creado_en__gte=timezone.now() - timedelta(hours=1),
-    ).exists()
-    destinatarios = list(quienes_pueden_cambiar(solicitante))
-
-    if reciente:
-        messages.info(request, "Ya enviaste una solicitud hace poco. Espera a que te atiendan.")
-    elif not destinatarios:
+    if solicitante.es_maestro:
+        return redirect("mi_perfil")
+    if solicitante.password_solicitada_en:
+        messages.info(request, "Ya enviaste tu solicitud. Espera a que te atiendan.")
+        return redirect("mi_perfil")
+    atienden = quienes_pueden_cambiar(solicitante)
+    if not atienden.exists():
         messages.error(request, "No hay a quién enviarle la solicitud.")
-    else:
-        registrar_evento(
-            Evento.Tipo.PASSWORD_SOLICITADO,
-            solicitante,
-            afectado=solicitante,
-            detalle="Solicitó que le cambien la contraseña.",
-        )
+        return redirect("mi_perfil")
+
+    solicitante.password_solicitada_en = timezone.now()
+    solicitante.save(update_fields=["password_solicitada_en"])
+    registrar_evento(
+        Evento.Tipo.PASSWORD_SOLICITADO,
+        solicitante,
+        afectado=solicitante,
+        detalle="Solicitó que le cambien la contraseña.",
+    )
+
+    encargados = list(atienden.filter(rol=Usuario.Rol.ENCARGADO))
+    if encargados:
         Notificacion.objects.bulk_create([
             Notificacion(
-                usuario=destino,
+                usuario=encargado,
                 tipo=Notificacion.Tipo.SOLICITUD_PASSWORD,
                 mensaje=f"{solicitante.nombre} solicitó un cambio de contraseña.",
             )
-            for destino in destinatarios
+            for encargado in encargados
         ])
-        messages.success(request, "Solicitud enviada.")
+        mensajes = correos.construir(
+            encargados,
+            f"{solicitante.nombre} solicitó cambiar su contraseña",
+            "solicitud_password",
+            {
+                "solicitante": solicitante,
+                "url_usuario": settings.SITE_URL
+                + reverse("editar_usuario", args=[solicitante.pk]),
+            },
+            carpeta="emails",
+        )
+        correos.enviar_tras_commit(mensajes)
+
+    messages.success(request, "Solicitud enviada.")
     return redirect("mi_perfil")
-
-def _enviar_enlace_recuperacion(usuario):
-    uid = urlsafe_base64_encode(force_bytes(usuario.pk))
-    token = default_token_generator.make_token(usuario)
-    url = settings.SITE_URL + reverse("restablecer_password", args=[uid, token])
-    mensajes = correos.construir(
-        [usuario],
-        "Restablece tu contraseña",
-        "restablecer_password",
-        {
-            "nombre": usuario.nombre,
-            "url_restablecer": url,
-            "horas": settings.PASSWORD_RESET_TIMEOUT // 3600,
-        },
-        carpeta="emails",
-    )
-    correos.enviar_tras_commit(mensajes)
-
-
-def recuperar_password(request):
-    if request.method == "POST":
-        form = RecuperarPasswordForm(request.POST)
-        if form.is_valid():
-            correo = form.cleaned_data["correo"].strip()
-            if cache.add(f"recuperar:{correo.lower()}", 1, 300):
-                usuario = Usuario.objects.filter(
-                    correo__iexact=correo, activo=True
-                ).first()
-                if usuario:
-                    _enviar_enlace_recuperacion(usuario)
-            messages.info(
-                request,
-                "Si el correo está registrado, te enviamos un enlace para restablecer "
-                "tu contraseña. Revisa también tu carpeta de spam; si no llega, "
-                "inténtalo de nuevo en unos minutos.",
-            )
-            return redirect("login")
-    else:
-        form = RecuperarPasswordForm()
-    return render(request, "accounts/recuperar_password.html", {"form": form})
-
-
-def restablecer_password(request, uidb64, token):
-    try:
-        pk = urlsafe_base64_decode(uidb64).decode()
-        usuario = Usuario.objects.get(pk=pk, activo=True)
-    except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
-        usuario = None
-
-    if usuario is None or not default_token_generator.check_token(usuario, token):
-        return render(request, "accounts/restablecer_password.html", {"valido": False})
-
-    if request.method == "POST":
-        form = CambiarPasswordForm(usuario, request.POST)
-        if form.is_valid():
-            usuario = form.save()
-            usuario.debe_cambiar_password = False
-            usuario.save(update_fields=["debe_cambiar_password"])
-            registrar_evento(
-                Evento.Tipo.PASSWORD_PROPIO,
-                usuario,
-                afectado=usuario,
-                detalle="Restableció su contraseña desde el enlace enviado por correo.",
-            )
-            messages.success(request, "Contraseña restablecida. Ya puedes iniciar sesión.")
-            return redirect("login")
-    else:
-        form = CambiarPasswordForm(usuario)
-    return render(
-        request,
-        "accounts/restablecer_password.html",
-        {"valido": True, "form": form},
-    )

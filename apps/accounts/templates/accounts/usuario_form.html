@@ -14,8 +14,39 @@
 
 <form method="post" class="col-md-6">
     {% csrf_token %}
+    {% if mostrar_password %}
+    <div class="mb-3">
+        <label class="form-label">Contraseña actual</label>
+        {% if password_actual %}
+        <div class="input-group">
+            <input type="text" id="passActual" class="form-control" value="********" data-valor="{{ password_actual }}" readonly autocomplete="off">
+            <button type="button" id="btnVerPass" class="btn btn-outline-secondary" title="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+        </div>
+        {% else %}
+        <div class="form-text">No disponible. Escribe una contraseña nueva abajo para poder verla aquí.</div>
+        {% endif %}
+        {% if form.instance.password_solicitada_en %}
+        <div class="text-warning small mt-1"><i class="bi bi-key me-1"></i>Este usuario pidió que le cambien la contraseña el {{ form.instance.password_solicitada_en|date:"d/m/Y H:i" }}.</div>
+        {% endif %}
+    </div>
+    {% endif %}
     {% include "_form_fields.html" %}
     <button type="submit" class="btn btn-primary">Guardar</button>
     <a href="{% url 'lista_usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
 </form>
+
+<script>
+    (function () {
+        var campo = document.getElementById("passActual");
+        var boton = document.getElementById("btnVerPass");
+        if (!campo || !boton) return;
+        var visible = false;
+        boton.addEventListener("click", function () {
+            visible = !visible;
+            campo.value = visible ? campo.dataset.valor : "********";
+            boton.firstElementChild.className = visible ? "bi bi-eye-slash" : "bi bi-eye";
+        });
+    })();
+</script>
+
 {% endblock %}
