@@ -4,6 +4,7 @@ import '../api_service.dart';
 import '../config.dart';
 import '../models/ticket.dart';
 import '../util.dart';
+import 'gestion_sheet.dart';
 import 'login_screen.dart';
 
 class DetalleScreen extends StatefulWidget {
@@ -135,6 +136,22 @@ class _DetalleScreenState extends State<DetalleScreen> {
           asignadoA: r['asignado_a'] as int?, prioridad: r['prioridad'] as String),
       ok: 'Ticket actualizado.',
     );
+  }
+
+  bool _puedeGestionar(TicketDetalle d) =>
+      _esPersonal && d.ticket.estado != 'CERRADO';
+
+  Future<void> _gestionar() async {
+    final r = await showModalBottomSheet<TicketDetalle>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => GestionSheet(ticketId: widget.ticketId),
+    );
+    if (r == null || !mounted) return;
+    setState(() => _d = r);
+    _aviso(r.ticket.estado == 'POR_CONFIRMAR'
+        ? 'Ticket marcado como resuelto. Se le pidió al usuario que confirme el cierre.'
+        : 'Ticket actualizado.');
   }
 
   Widget _chip(String texto, Color color) => Container(
@@ -309,7 +326,7 @@ class _DetalleScreenState extends State<DetalleScreen> {
           ),
         ),
       ),
-      if (p.puedeTomar || p.puedeAsignar) ...[
+      if (p.puedeTomar || p.puedeAsignar || _puedeGestionar(d)) ...[
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -321,6 +338,12 @@ class _DetalleScreenState extends State<DetalleScreen> {
                 icon: const Icon(Icons.assignment_ind),
                 label: const Text('Tomar ticket'),
                 style: FilledButton.styleFrom(backgroundColor: Config.rojo),
+              ),
+            if (_puedeGestionar(d))
+              OutlinedButton.icon(
+                onPressed: _enviando ? null : _gestionar,
+                icon: const Icon(Icons.edit_note),
+                label: const Text('Actualizar ticket'),
               ),
             if (p.puedeAsignar)
               OutlinedButton.icon(

@@ -111,7 +111,7 @@ def ticket_comentar(request, pk):
 
 @api_view(["POST"])
 def ticket_tomar(request, pk):
-    if not request.user.es_personal:
+    if not request.user.es_personal or request.user.es_superadmin:
         return _error("No tienes permiso para tomar tickets.", status.HTTP_403_FORBIDDEN)
 
     get_object_or_404(_tickets_visibles(request.user), pk=pk)

@@ -77,7 +77,7 @@ class TicketListSerializer(serializers.ModelSerializer):
 class TicketDetalleSerializer(TicketListSerializer):
     area = serializers.StringRelatedField()
     comentarios = serializers.SerializerMethodField()
-    historial = HistorialSerializer(many=True, read_only=True)
+    historial = serializers.SerializerMethodField()
     adjuntos = serializers.SerializerMethodField()
     permisos = serializers.SerializerMethodField()
 
@@ -93,6 +93,12 @@ class TicketDetalleSerializer(TicketListSerializer):
             comentarios = comentarios.filter(interno=False)
         return ComentarioSerializer(comentarios, many=True).data
 
+    def get_historial(self, ticket):
+        eventos = ticket.historial.select_related("usuario")
+        if not self.context["request"].user.es_personal:
+            eventos = eventos.exclude(tipo=Historial.Tipo.ESCALADO)
+        return HistorialSerializer(eventos, many=True).data
+
     def get_adjuntos(self, ticket):
         return AdjuntoSerializer(ticket.adjuntos.defer("contenido"), many=True).data
 
@@ -103,6 +109,7 @@ class TicketDetalleSerializer(TicketListSerializer):
             "puede_comentar": abierto,
             "puede_tomar": (
                 usuario.es_personal
+                and not usuario.es_superadmin
                 and ticket.asignado_a_id is None
                 and abierto
                 and usuario.sucursal_id == ticket.sucursal_id

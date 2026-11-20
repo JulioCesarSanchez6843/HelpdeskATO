@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from apps.catalog.models import Categoria
 from apps.tickets import services
-from apps.tickets.forms import AsignarTicketForm, TicketForm
+from apps.tickets.forms import AsignarTicketForm, TicketForm, TicketGestionForm
 from apps.tickets.imagenes import ImagenInvalida
 from apps.tickets.models import Ticket
 from apps.tickets.views import _tickets_visibles
@@ -108,5 +108,63 @@ def ticket_opciones(request, pk):
                 for valor, etiqueta in Ticket.Prioridad.choices
             ],
             "categorias": [{"id": c.pk, "nombre": c.nombre} for c in categorias],
+        }
+    )
+
+@api_view(["POST"])
+def ticket_gestion(request, pk):
+    if not request.user.es_personal:
+        return _error("No tienes permiso.", status.HTTP_403_FORBIDDEN)
+
+    ticket = get_object_or_404(_tickets_visibles(request.user), pk=pk)
+
+    with transaction.atomic():
+        instancia = Ticket.objects.select_for_update().get(pk=ticket.pk)
+        antes = services.snapshot(instancia)
+        form = TicketGestionForm(request.data, instance=instancia, usuario=request.user)
+        if not form.is_valid():
+            return _errores_form(form)
+        form.save()
+        instancia.refresh_from_db()
+        services.registrar_gestion(
+            instancia,
+            request.user,
+            antes,
+            form.cleaned_data.get("motivo_espera", ""),
+        )
+
+    return _detalle(request, pk)
+
+
+@api_view(["GET"])
+def ticket_gestion_opciones(request, pk):
+    if not request.user.es_personal:
+        return _error("No tienes permiso.", status.HTTP_403_FORBIDDEN)
+
+    ticket = get_object_or_404(_tickets_visibles(request.user), pk=pk)
+    form = TicketGestionForm(instance=ticket, usuario=request.user)
+
+    return Response(
+        {
+            "estados": [
+                {"valor": valor, "etiqueta": etiqueta}
+                for valor, etiqueta in form.fields["estado"].choices
+            ],
+            "categorias": [
+                {"id": c.pk, "nombre": c.nombre}
+                for c in form.fields["categoria"].queryset
+            ],
+            "puede_priorizar": form.puede_priorizar,
+            "prioridades": [
+                {"valor": valor, "etiqueta": etiqueta}
+                for valor, etiqueta in Ticket.Prioridad.choices
+            ],
+            "valores": {
+                "estado": ticket.estado,
+                "prioridad": ticket.prioridad,
+                "categoria": ticket.categoria_id,
+                "numero_serie": ticket.numero_serie,
+                "nota_resolucion": ticket.nota_resolucion,
+            },
         }
     )

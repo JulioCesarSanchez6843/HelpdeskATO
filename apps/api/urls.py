@@ -13,4 +13,6 @@ urlpatterns = [
     path("tickets/<int:pk>/tomar/", views.ticket_tomar, name="api_ticket_tomar"),
     path("tickets/<int:pk>/asignar/", views_gestion.ticket_asignar, name="api_ticket_asignar"),
     path("tickets/<int:pk>/opciones/", views_gestion.ticket_opciones, name="api_ticket_opciones"),
+    path("tickets/<int:pk>/gestion/", views_gestion.ticket_gestion, name="api_ticket_gestion"),
+    path("tickets/<int:pk>/gestion-opciones/", views_gestion.ticket_gestion_opciones, name="api_ticket_gestion_opciones"),
 ]
