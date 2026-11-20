@@ -26,7 +26,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
   Future<void> _recargar() async {
     final f = ApiService.tickets();
-    setState(() => _futuro = f);
+    setState(() { _futuro = f; });
     try {
       await f;
     } catch (_) {}
