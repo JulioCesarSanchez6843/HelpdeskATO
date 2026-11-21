@@ -194,6 +194,7 @@
     }
 
     function ir(estado, mensaje, ms) {
+        clearTimeout(temporizadorRegreso);
         mostrar(estado);
         if (mensaje) {
             decir(mensaje, ms);
@@ -208,14 +209,13 @@
             if (sobre || dormida) {
                 return;
             }
-            callar();
-            mostrar("principal");
+            ir("principal", frase("principal"), 8000);
         }, ms);
     }
 
     function dormir() {
         dormida = true;
-        ir("dormir", frase("dormir"), 4000);
+        ir("dormir", frase("dormir"), 8000);
     }
 
     function actividad() {
@@ -241,15 +241,15 @@
             var r = Math.random();
             if (contextuales.length && r < 0.3) {
                 var c = azar(contextuales);
-                ir(c.estado, c.frase, 4500);
+                ir(c.estado, c.frase, 8000);
             } else if (ahora !== "principal" && r < 0.6) {
-                ir("principal", Math.random() < 0.4 ? frase("principal") : null);
+                ir("principal", frase("principal"), 8000);
             } else {
                 var e = azarDistinto(ciclo, ahora);
-                ir(e, Math.random() < 0.65 ? frase(e) : null);
+                ir(e, frase(e), 8000);
             }
         }
-        setTimeout(paso, 5000 + Math.random() * 5000);
+        setTimeout(paso, 7000 + Math.random() * 1000);
     }
 
     function precargar() {
@@ -274,10 +274,10 @@
         actividad();
         sobre = true;
         clearTimeout(temporizadorRegreso);
-        bloqueoHasta = Date.now() + 4000;
+        bloqueoHasta = Date.now() + 6000;
         var estado = saludada ? azarDistinto(reacciones, ahora) : "hola";
         saludada = true;
-        ir(estado, frase(estado), 3200);
+        ir(estado, frase(estado), 5500);
     });
 
     escena.addEventListener("pointerleave", function (ev) {
@@ -285,7 +285,7 @@
             return;
         }
         sobre = false;
-        programarRegreso(2500);
+        programarRegreso(5500);
     });
 
     escena.addEventListener("click", function () {
@@ -293,7 +293,7 @@
         var t = Date.now();
         clics = t - ultimoClic < 1200 ? clics + 1 : 1;
         ultimoClic = t;
-        bloqueoHasta = t + 4000;
+        bloqueoHasta = t + 6000;
         var estado;
         if (clics >= 6) {
             estado = "enojado";
@@ -305,7 +305,7 @@
         }
         ir(estado, frase(estado), 3200);
         if (!sobre) {
-            programarRegreso(3500);
+            programarRegreso(6000);
         }
     });
 
@@ -319,7 +319,7 @@
 
     temporizadorSueno = setTimeout(dormir, 60000);
     setTimeout(function () {
-        decir("¡Hola" + coma + "!", 3800);
+        decir("¡Hola" + coma + "!", 6000);
     }, 800);
     setTimeout(paso, 8000);
 })();

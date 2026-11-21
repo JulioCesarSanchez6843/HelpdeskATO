@@ -4,7 +4,7 @@
 
 {% if es_el_mismo %}
 <div class="alert alert-info col-md-6">
-    Tu contraseña no se puede cambiar desde aquí.
+    Aquí puedes ver tu contraseña, pero no cambiarla.
 </div>
 {% elif sin_permiso_password %}
 <div class="alert alert-info col-md-6">
@@ -14,6 +14,19 @@
 
 <form method="post" class="col-md-6">
     {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    {% for field in form %}
+    {% if field.name != "password1" and field.name != "password2" %}
+    <div class="mb-3">
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
     {% if mostrar_password %}
     <div class="mb-3">
         <label class="form-label">Contraseña actual</label>
@@ -22,18 +35,33 @@
             <input type="text" id="passActual" class="form-control" value="********" data-valor="{{ password_actual }}" readonly autocomplete="off">
             <button type="button" id="btnVerPass" class="btn btn-outline-secondary" title="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
         </div>
+        {% if not es_el_mismo %}
+        <button type="submit" formaction="{% url 'enviar_correo_password' form.instance.pk %}" formnovalidate class="btn btn-outline-secondary btn-sm mt-2" onclick="return confirm('Se enviará la contraseña actual por correo. ¿Continuar?')">
+            <i class="bi bi-envelope-paper me-1"></i>Enviar su contraseña actual por correo
+        </button>
+        {% endif %}
+        {% elif es_el_mismo %}
+        <div class="form-text">No disponible.</div>
         {% else %}
         <div class="form-text">No disponible. Escribe una contraseña nueva abajo para poder verla aquí.</div>
         {% endif %}
-        {% if form.instance.password_solicitada_en %}
-        <div class="text-warning small mt-1"><i class="bi bi-key me-1"></i>Este usuario pidió que le cambien la contraseña el {{ form.instance.password_solicitada_en|date:"d/m/Y H:i" }}.</div>
-        {% endif %}
     </div>
     {% endif %}
-    {% include "_form_fields.html" %}
+
+    {% for field in form %}
+    {% if field.name == "password1" or field.name == "password2" %}
+    <div class="mb-3">
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% endfor %}
+
     <button type="submit" class="btn btn-primary">Guardar</button>
     <a href="{% url 'lista_usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
-</form>
+</form> 
 
 <script>
     (function () {

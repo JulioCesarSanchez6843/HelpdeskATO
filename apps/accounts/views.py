@@ -27,6 +27,7 @@ from apps.tickets import emails as correos
 from apps.tickets.models import ConfiguracionSistema, CorreoPendiente, Notificacion, Ticket
 from apps.tickets.views import _tickets_visibles
 
+from . import correos_password
 from .decorators import admin_required
 from .utilidades import entero_positivo
 from .forms import (
@@ -39,15 +40,16 @@ from .forms import (
 from .models import FotoPerfil, PreferenciasUsuario, Usuario
 from .permisos import (
     puede_cambiar_password,
-    quienes_pueden_cambiar,
-    solicitudes_password_pendientes,
     usuarios_gestionables as _usuarios_gestionables,
+    usuarios_visibles,
 )
 from apps.catalog.models import Area, Puesto, Sucursal
 
 LOGIN_MAX_INTENTOS = 5
 LOGIN_BLOQUEO_SEGUNDOS = 15 * 60
 USUARIOS_POR_PAGINA = 20
+OLVIDE_ESPERA_SEGUNDOS = 10 * 60
+OLVIDE_MAX_POR_IP = 10
 
 def _clave_login(request, correo):
     huella = hashlib.sha256(
@@ -91,6 +93,54 @@ def login_view(request):
 
     return render(request, "accounts/login.html", contexto)
 
+def olvide_password(request):
+    if request.user.is_authenticated:
+        return redirect(PreferenciasUsuario.de(request.user).url_inicio)
+
+    if request.method == "POST":
+        clave_ip = f"olvide-ip:{request.META.get('REMOTE_ADDR', '')}"
+        if cache.get(clave_ip, 0) >= OLVIDE_MAX_POR_IP:
+            return render(
+                request,
+                "accounts/olvide_password.html",
+                {"error": "Demasiadas solicitudes. Inténtalo más tarde."},
+                status=429,
+            )
+        cache.set(clave_ip, cache.get(clave_ip, 0) + 1, OLVIDE_ESPERA_SEGUNDOS)
+
+        correo = request.POST.get("correo", "").strip()
+        tipo = "recordar" if request.POST.get("tipo") == "recordar" else "cambio"
+        huella = hashlib.sha256(correo.lower().encode()).hexdigest()
+        usuario = Usuario.objects.filter(correo__iexact=correo, activo=True).first()
+        roles_permitidos = {
+            Usuario.Rol.USUARIO,
+            Usuario.Rol.BECARIO,
+            Usuario.Rol.ENCARGADO,
+        }
+        if (
+            usuario is not None
+            and usuario.rol in roles_permitidos
+            and not usuario.is_superuser
+            and cache.add(f"olvide-correo:{huella}", 1, OLVIDE_ESPERA_SEGUNDOS)
+        ):
+            correos_password.correo_solicitud(usuario, tipo)
+            registrar_evento(
+                Evento.Tipo.PASSWORD_SOLICITADO,
+                usuario,
+                afectado=usuario,
+                detalle=(
+                    "Solicitó que se le cambie la contraseña."
+                    if tipo == "cambio"
+                    else "Solicitó que se le recuerde la contraseña."
+                ),
+            )
+        messages.success(
+            request,
+            "Si el correo está registrado, se avisó a los administradores. Te contactarán pronto.",
+        )
+        return redirect("login")
+
+    return render(request, "accounts/olvide_password.html")
 
 @require_POST
 def logout_view(request):
@@ -109,7 +159,7 @@ def lista_usuarios(request):
     hasta = request.GET.get("hasta", "")
 
     usuarios = (
-        _usuarios_gestionables(request.user)
+        usuarios_visibles(request.user)
         .select_related("sucursal", "area", "puesto")
         .annotate(
             foto_actualizada=Subquery(
@@ -172,6 +222,15 @@ def lista_usuarios(request):
         hasta = ""
 
     pagina = Paginator(usuarios, USUARIOS_POR_PAGINA).get_page(request.GET.get("page"))
+    pagina.object_list = list(pagina.object_list)
+    ids_gestionables = set(
+        _usuarios_gestionables(request.user)
+        .filter(pk__in=[u.pk for u in pagina.object_list])
+        .values_list("pk", flat=True)
+    )
+    for u in pagina.object_list:
+        u.puede_gestionar = u.pk in ids_gestionables
+        u.password_mostrada = u.password_visible
     parametros = request.GET.copy()
     parametros.pop("page", None)
 
@@ -218,6 +277,7 @@ def editar_usuario(request, pk):
     es_el_mismo = usuario.pk == request.user.pk
     rol_anterior = usuario.rol
     puede_password = puede_cambiar_password(request.user, usuario)
+    ver_password = es_el_mismo or puede_password
 
     if request.method == "POST":
         form = UsuarioEditarForm(
@@ -229,13 +289,14 @@ def editar_usuario(request, pk):
             nueva = form.nueva_password
             if nueva:
                 usuario.asignar_password(nueva)
-                usuario.save(update_fields=["password", "password_cifrada", "password_solicitada_en"])
+                usuario.save(update_fields=["password", "password_cifrada"])
                 registrar_evento(
                     Evento.Tipo.PASSWORD_CAMBIADO,
                     request.user,
                     afectado=usuario,
                     detalle=f"{request.user.nombre} cambió la contraseña de {usuario.nombre}.",
                 )
+                correos_password.correo_cambio(usuario, request.user)
                 messages.success(request, f"Usuario «{usuario.nombre}» actualizado. Se cambió su contraseña.")
             else:
                 messages.success(request, f"Usuario «{usuario.nombre}» actualizado.")
@@ -258,8 +319,8 @@ def editar_usuario(request, pk):
         "form": form, "titulo": f"Editar usuario — {usuario.nombre}",
         "es_el_mismo": es_el_mismo,
         "sin_permiso_password": not es_el_mismo and not puede_password,
-        "mostrar_password": puede_password,
-        "password_actual": usuario.password_visible if puede_password else "",
+        "mostrar_password": ver_password,
+        "password_actual": usuario.password_visible if ver_password else "",
     })
 
 
@@ -291,6 +352,36 @@ def cambiar_estado_usuario(request, pk):
         )
         messages.success(request, f"Usuario «{usuario.nombre}» {estado}.")
     return redirect("lista_usuarios")
+
+@admin_required
+@require_POST
+def enviar_correo_password(request, pk):
+    usuario = get_object_or_404(_usuarios_gestionables(request.user), pk=pk)
+    if not puede_cambiar_password(request.user, usuario):
+        messages.error(request, "No tienes permiso para enviar la contraseña de este usuario.")
+        return redirect("lista_usuarios")
+
+    if not usuario.password_visible:
+        messages.error(
+            request,
+            "Este usuario no tiene una contraseña disponible. Asígnale una nueva primero.",
+        )
+        return redirect("editar_usuario", pk=usuario.pk)
+    enviado = correos_password.correo_recordatorio(usuario, request.user)
+    detalle = f"{request.user.nombre} envió por correo la contraseña a {usuario.nombre}."
+
+    if not enviado:
+        messages.error(request, "No se pudo enviar el correo.")
+        return redirect("editar_usuario", pk=usuario.pk)
+
+    registrar_evento(
+        Evento.Tipo.PASSWORD_ENVIADO,
+        request.user,
+        afectado=usuario,
+        detalle=detalle,
+    )
+    messages.success(request, f"Correo enviado a {usuario.correo}.")
+    return redirect("editar_usuario", pk=usuario.pk)
 
 @login_required
 def mi_perfil(request):
@@ -488,9 +579,6 @@ def panel_inicio(request):
             for clave, horas in settings.SLA_HORAS.items()
         ],
         "reabrir_dias": settings.REABRIR_TICKET_DIAS,
-        "solicitudes_password": (
-            solicitudes_password_pendientes(usuario) if usuario.es_admin else []
-        ),
     }
 
     if vista == "encargado":
@@ -518,7 +606,7 @@ def cambiar_password(request):
     if not request.user.es_maestro:
         messages.info(
             request,
-            "Tu contraseña la cambia tu encargado. Envía la solicitud desde tu perfil.",
+            "Tu contraseña la cambia soporte.",
         )
         return redirect("mi_perfil")
     if request.method == "POST":
@@ -528,8 +616,7 @@ def cambiar_password(request):
             usuario.asignar_password(form.cleaned_data["new_password1"])
             usuario.debe_cambiar_password = False
             usuario.save(update_fields=[
-                "password", "password_cifrada", "password_solicitada_en",
-                "debe_cambiar_password",
+                "password", "password_cifrada", "debe_cambiar_password",
             ])
             update_session_auth_hash(request, usuario)
             registrar_evento(
@@ -543,53 +630,3 @@ def cambiar_password(request):
     else:
         form = CambiarPasswordForm(request.user)
     return render(request, "accounts/cambiar_password.html", {"form": form})
-
-
-@login_required
-@require_POST
-def solicitar_cambio_password(request):
-    solicitante = request.user
-    if solicitante.es_maestro:
-        return redirect("mi_perfil")
-    if solicitante.password_solicitada_en:
-        messages.info(request, "Ya enviaste tu solicitud. Espera a que te atiendan.")
-        return redirect("mi_perfil")
-    atienden = quienes_pueden_cambiar(solicitante)
-    if not atienden.exists():
-        messages.error(request, "No hay a quién enviarle la solicitud.")
-        return redirect("mi_perfil")
-
-    solicitante.password_solicitada_en = timezone.now()
-    solicitante.save(update_fields=["password_solicitada_en"])
-    registrar_evento(
-        Evento.Tipo.PASSWORD_SOLICITADO,
-        solicitante,
-        afectado=solicitante,
-        detalle="Solicitó que le cambien la contraseña.",
-    )
-
-    encargados = list(atienden.filter(rol=Usuario.Rol.ENCARGADO))
-    if encargados:
-        Notificacion.objects.bulk_create([
-            Notificacion(
-                usuario=encargado,
-                tipo=Notificacion.Tipo.SOLICITUD_PASSWORD,
-                mensaje=f"{solicitante.nombre} solicitó un cambio de contraseña.",
-            )
-            for encargado in encargados
-        ])
-        mensajes = correos.construir(
-            encargados,
-            f"{solicitante.nombre} solicitó cambiar su contraseña",
-            "solicitud_password",
-            {
-                "solicitante": solicitante,
-                "url_usuario": settings.SITE_URL
-                + reverse("editar_usuario", args=[solicitante.pk]),
-            },
-            carpeta="emails",
-        )
-        correos.enviar_tras_commit(mensajes)
-
-    messages.success(request, "Solicitud enviada.")
-    return redirect("mi_perfil")

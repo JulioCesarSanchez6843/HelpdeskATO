@@ -1500,3 +1500,32 @@ a > .card:hover {
         padding: 0.5rem 0.6rem;
     }
 }
+
+.estado-vacio {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem;
+    text-align: center;
+}
+
+.estado-vacio img {
+    width: 160px;
+    max-width: 60%;
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18));
+    animation: mascota-flotar 4s ease-in-out infinite;
+}
+
+.estado-vacio h5 {
+    margin-bottom: 0.25rem;
+}
+
+.estado-vacio p {
+    margin: 0;
+    color: var(--bs-secondary-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .estado-vacio img { animation: none; }
+}

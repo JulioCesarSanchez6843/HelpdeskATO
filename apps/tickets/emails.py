@@ -223,3 +223,14 @@ def _enviar(mensajes):
                     )
     except Exception:
         logger.exception("No se pudieron enviar los correos.")
+
+def enviar_directo(mensajes):
+    if not mensajes:
+        return False
+    try:
+        with mail.get_connection() as conexion:
+            conexion.send_messages(mensajes)
+        return True
+    except Exception:
+        logger.exception("No se pudieron enviar los correos.")
+        return False

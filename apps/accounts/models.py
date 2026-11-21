@@ -58,7 +58,6 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     activo = models.BooleanField(default=True)
     debe_cambiar_password = models.BooleanField(default=False)
     password_cifrada = models.TextField(blank=True, default="")
-    password_solicitada_en = models.DateTimeField(null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     is_staff = models.BooleanField(default=False)
@@ -138,7 +137,6 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     def asignar_password(self, nueva):
         self.set_password(nueva)
         self.password_cifrada = cifrar(nueva)
-        self.password_solicitada_en = None
 
     @property
     def password_visible(self):

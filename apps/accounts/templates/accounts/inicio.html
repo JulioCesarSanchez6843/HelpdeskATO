@@ -118,18 +118,6 @@
         {% endif %}
     </section>
 
-    {% if solicitudes_password %}
-    <section class="inicio-avisos">
-        <h2><i class="bi bi-key me-1"></i>Contraseñas pendientes de cambiar</h2>
-        {% for s in solicitudes_password %}
-        <div class="aviso-fila">
-            <a href="{% url 'editar_usuario' s.pk %}" class="aviso-boton text-decoration-none">{{ s.nombre }}{% if s.sucursal %} · {{ s.sucursal.nombre }}{% endif %}</a>
-            <span class="aviso-fecha">{{ s.password_solicitada_en|date:"d/m H:i" }}</span>
-        </div>
-        {% endfor %}
-    </section>
-    {% endif %}
-
     {% if pendientes %}
     <section class="inicio-avisos">
         <h2><i class="bi bi-bell me-1"></i>Avisos pendientes</h2>
@@ -146,6 +134,6 @@
 
 </div>
 
-<script src="{% static 'js/mascota.js' %}?v=1"></script>
+<script src="{% static 'js/mascota.js' %}?v=3"></script>
 
 {% endblock %}
