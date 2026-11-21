@@ -673,6 +673,33 @@ a > .card:hover {
     border-radius: 1rem;
 }
 
+.modal-content {
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+}
+
+.modal-confirmar .modal-header {
+    border-bottom: 0;
+    padding-bottom: 0.25rem;
+}
+
+.modal-confirmar .modal-title {
+    font-weight: 600;
+}
+
+.modal-confirmar .modal-body {
+    padding-top: 0.5rem;
+    color: #475467;
+}
+
+.modal-confirmar .modal-footer {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.modal-confirmar-icono {
+    color: var(--tollocan-icono);
+}
+
 .login-tarjeta {
     overflow: hidden;
 }

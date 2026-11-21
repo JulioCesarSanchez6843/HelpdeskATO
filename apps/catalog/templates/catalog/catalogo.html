@@ -122,7 +122,7 @@
                         <button type="button" class="btn btn-sm btn-outline-secondary"
                                 data-bs-toggle="modal" data-bs-target="#modalEditar{{ registro.pk }}">Editar</button>
                         <form method="post" action="{% url url_eliminar registro.pk %}" class="d-inline"
-                              onsubmit="return confirm('¿Eliminar «{{ registro.nombre|escapejs }}»?');">
+                              data-confirmar="¿Eliminar «{{ registro.nombre }}»?" data-confirmar-titulo="Eliminar registro" data-confirmar-boton="Eliminar" data-confirmar-peligro>
                             {% csrf_token %}
                             <button class="btn btn-sm btn-outline-danger"
                                     {% if registro.en_uso %}disabled title="Está en uso, no se puede eliminar"{% endif %}>Eliminar</button>

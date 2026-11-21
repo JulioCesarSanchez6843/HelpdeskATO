@@ -28,6 +28,7 @@ from apps.tickets.models import ConfiguracionSistema, CorreoPendiente, Notificac
 from apps.tickets.views import _tickets_visibles
 
 from . import correos_password
+from .contenido_ayuda import ayuda_para
 from .decorators import admin_required
 from .utilidades import entero_positivo
 from .forms import (
@@ -437,6 +438,9 @@ def ajustes(request):
         form = PreferenciasForm(instance=preferencias)
     return render(request, "accounts/ajustes.html", {"form": form})
 
+@login_required
+def ayuda(request):
+    return render(request, "accounts/ayuda.html", ayuda_para(request.user))
 
 @login_required
 def inicio(request):

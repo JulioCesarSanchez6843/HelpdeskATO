@@ -76,7 +76,7 @@
 
     <button type="submit" class="btn btn-primary">Guardar ajustes</button>
     <button type="submit" name="accion" value="restablecer" class="btn btn-outline-secondary"
-            onclick="return confirm('¿Restablecer todos tus ajustes a los valores originales?');">Restablecer</button>
+            data-confirmar="¿Restablecer todos tus ajustes a los valores originales?" data-confirmar-titulo="Restablecer ajustes" data-confirmar-boton="Restablecer">Restablecer</button>
 </form>
 
 {% if user.es_maestro %}

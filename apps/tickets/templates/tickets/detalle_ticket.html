@@ -364,7 +364,7 @@
                                 <form
                                     method="post"
                                     action="{% url 'forzar_cierre' ticket.pk %}"
-                                    onsubmit="return confirm('¿Cerrar el ticket sin la confirmación del usuario?');"
+                                    data-confirmar="¿Cerrar el ticket sin la confirmación del usuario?" data-confirmar-titulo="Cerrar ticket" data-confirmar-boton="Cerrar ticket" data-confirmar-peligro
                                 >
                                     {% csrf_token %}
                                     <label for="justificacion" class="form-label small">Justificación del cierre *</label>

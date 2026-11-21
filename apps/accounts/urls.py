@@ -16,5 +16,6 @@ urlpatterns = [
     path("usuarios/<int:pk>/estado/", views.cambiar_estado_usuario, name="cambiar_estado_usuario"),
     path("perfil/", views.mi_perfil, name="mi_perfil"),
     path("ajustes/", views.ajustes, name="ajustes"),
+    path("ayuda/", views.ayuda, name="ayuda"),
     path("perfil/foto/<int:pk>/", views.foto_usuario, name="foto_usuario"),
 ]
