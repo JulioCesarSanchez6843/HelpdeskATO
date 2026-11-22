@@ -49,16 +49,22 @@ def puede_cambiar_password(actor, objetivo):
         return False
     return usuarios_gestionables(actor).filter(pk=objetivo.pk).exists()
 
+def usuarios_visibles(actor):
+    usuarios = Usuario.objects.select_related("area", "puesto", "sucursal")
+    if actor is None:
+        return usuarios.none()
+    if actor.es_superadmin:
+        return usuarios
+    if actor.es_encargado:
+        return usuarios.filter(
+            sucursal_id=actor.sucursal_id, is_superuser=False
+        ).exclude(rol=Usuario.Rol.SUPERADMIN)
+    return usuarios.none()
 
-def quienes_pueden_cambiar(objetivo):
-    candidatos = Usuario.objects.filter(activo=True).exclude(pk=objetivo.pk)
-    if objetivo.es_maestro:
-        return candidatos.none()
-    maestro = Q(is_superuser=True)
-    superadmin = Q(rol=Usuario.Rol.SUPERADMIN)
-    if objetivo.rol == Usuario.Rol.SUPERADMIN:
-        return candidatos.filter(maestro)
-    if objetivo.rol == Usuario.Rol.ENCARGADO:
-        return candidatos.filter(maestro | superadmin)
-    encargados = Q(rol=Usuario.Rol.ENCARGADO, sucursal_id=objetivo.sucursal_id)
-    return candidatos.filter(maestro | superadmin | encargados)
+
+def puede_ver_password(actor, objetivo):
+    if actor is None or objetivo is None or objetivo.pk is None:
+        return False
+    if actor.pk == objetivo.pk:
+        return True
+    return usuarios_visibles(actor).filter(pk=objetivo.pk).exists()

@@ -1,9 +1,11 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.db.models.functions import Lower
-
+from .cifrado import cifrar, descifrar
 
 class UsuarioManager(BaseUserManager):
     """Manager personalizado: Django necesita este código para saber
@@ -20,7 +22,7 @@ class UsuarioManager(BaseUserManager):
             raise ValueError("El correo es obligatorio")
         correo = self.normalize_email(correo)
         usuario = self.model(correo=correo, nombre=nombre, **extra_fields)
-        usuario.set_password(password)
+        usuario.asignar_password(password)
         usuario.save(using=self._db)
         return usuario
 
@@ -55,6 +57,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     )
     activo = models.BooleanField(default=True)
     debe_cambiar_password = models.BooleanField(default=False)
+    password_cifrada = models.TextField(blank=True, default="")
     creado_en = models.DateTimeField(auto_now_add=True)
 
     is_staff = models.BooleanField(default=False)
@@ -119,13 +122,8 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         return self.es_admin or self.es_becario
 
     @property
-    def iniciales(self):
-        partes = (self.nombre or "").split()
-        if not partes:
-            return "?"
-        if len(partes) == 1:
-            return partes[0][:1].upper()
-        return (partes[0][:1] + partes[1][:1]).upper()
+    def avatar_color(self):
+        return (self.pk or 0) % 10
 
     @property
     def iniciales(self):
@@ -136,59 +134,25 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
             return partes[0][:1].upper()
         return (partes[0][:1] + partes[1][:1]).upper()
 
+    def asignar_password(self, nueva):
+        self.set_password(nueva)
+        self.password_cifrada = cifrar(nueva)
 
-class SolicitudCambioPassword(models.Model):
+    @property
+    def password_visible(self):
+        return descifrar(self.password_cifrada)
 
-    class Estado(models.TextChoices):
-        PENDIENTE = "PENDIENTE", "Pendiente"
-        APROBADA = "APROBADA", "Aprobada"
-        RECHAZADA = "RECHAZADA", "Rechazada"
-        REEMPLAZADA = "REEMPLAZADA", "Reemplazada por otra solicitud"
 
-    # El administrador al que le quieren cambiar la contraseña.
-    usuario = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="solicitudes_password",
-    )
-    # El administrador que pidió el cambio.
-    solicitante = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="+",
-    )
-    password_hash = models.CharField(max_length=256)
-    estado = models.CharField(
-        max_length=12, choices=Estado.choices, default=Estado.PENDIENTE
-    )
-    creada_en = models.DateTimeField(auto_now_add=True)
-    resuelta_en = models.DateTimeField(null=True, blank=True)
+def ruta_foto(instancia, nombre):
+    return f"fotos/{instancia.usuario_id}/{uuid.uuid4().hex}.jpg"
 
-    class Meta:
-        ordering = ["-creada_en", "-id"]
-        verbose_name = "Solicitud de cambio de contraseña"
-        verbose_name_plural = "Solicitudes de cambio de contraseña"
-        constraints = [
-            # Solo puede haber una solicitud pendiente por administrador.
-            models.UniqueConstraint(
-                fields=["usuario"],
-                condition=models.Q(estado="PENDIENTE"),
-                name="solicitud_password_una_pendiente_por_usuario",
-            ),
-        ]
-
-    def __str__(self):
-        return (
-            f"Cambio de contraseña de {self.usuario} pedido por "
-            f"{self.solicitante} ({self.get_estado_display()})"
-        )
 class FotoPerfil(models.Model):
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="foto_perfil",
     )
-    contenido = models.BinaryField()
+    archivo = models.FileField(upload_to=ruta_foto, null=True, blank=True)
     actualizada_en = models.DateTimeField(auto_now=True)
 
     def __str__(self):

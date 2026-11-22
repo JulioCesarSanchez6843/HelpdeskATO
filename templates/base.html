@@ -40,6 +40,9 @@
     {% if user.is_authenticated %}
     <nav class="navbar navbar-tollocan px-3">
         <div class="d-flex align-items-center">
+            <button class="navbar-toggler me-3 d-md-none" type="button" id="btnMenu" aria-label="Mostrar u ocultar menú">
+                <i class="bi bi-layout-sidebar-inset fs-5"></i>
+            </button>
             <a class="navbar-brand d-flex align-items-center" href="{% url 'inicio' %}">
                 <img src="{% static 'img/Logo_tollocan.png' %}" alt="Logo Tollocan" class="logo-navbar me-3">
                 <span class="marca-texto d-none d-lg-flex">
@@ -56,9 +59,10 @@
             <div class="dropdown d-flex align-items-center">
                 <a class="link-barra d-flex align-items-center text-decoration-none" href="{% url 'mi_perfil' %}" title="Mi perfil">
                     {% if foto_version %}
-                    <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-nav">
+                    <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-nav" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                    <span class="avatar-nav avatar-nav-iniciales av-{{ user.avatar_color }}" hidden>{{ user.iniciales }}</span>
                     {% else %}
-                    <span class="avatar-nav avatar-nav-iniciales">{{ user.iniciales }}</span>
+                    <span class="avatar-nav avatar-nav-iniciales av-{{ user.avatar_color }}">{{ user.iniciales }}</span>
                     {% endif %}
                     <span class="ms-2 d-none d-sm-inline">{{ user.nombre }}</span>
                 </a>
@@ -71,6 +75,7 @@
                     {% if user.es_superadmin %}
                     <li><a class="dropdown-item" href="{% url 'configuracion_sistema' %}"><i class="bi bi-sliders me-2"></i>Parámetros del sistema</a></li>
                     {% endif %}
+                    <li><a class="dropdown-item" href="{% url 'ayuda' %}"><i class="bi bi-question-circle me-2"></i>Ayuda</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form method="post" action="{% url 'logout' %}">
@@ -80,13 +85,11 @@
                     </li>
                 </ul>
             </div>
-            <button class="navbar-toggler me-3 d-md-none" type="button" id="btnMenu" aria-label="Mostrar u ocultar menú">
-                <i class="bi bi-list fs-3"></i>
-            </button>
             {% if sucursal_actual %}
             <div class="sucursal-nav" title="{{ sucursal_actual.nombre }}">
                 {% if sucursal_actual.logo_actualizado_en %}
-                <img src="{% url 'logo_sucursal' sucursal_actual.pk %}?v={{ sucursal_actual.logo_actualizado_en|date:'U' }}" alt="{{ sucursal_actual.nombre }}" class="logo-sucursal-nav">
+                <img src="{% url 'logo_sucursal' sucursal_actual.pk %}?v={{ sucursal_actual.logo_actualizado_en|date:'U' }}" alt="{{ sucursal_actual.nombre }}" class="logo-sucursal-nav" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                <span class="sucursal-nombre" hidden>{{ sucursal_actual.nombre }}</span>
                 {% else %}
                 <span class="sucursal-nombre d-none d-sm-inline">{{ sucursal_actual.nombre }}</span>
                 {% endif %}
@@ -134,6 +137,25 @@
         </main>
     </div>
     {% endif %}
+
+    <div class="modal fade" id="modalConfirmar" tabindex="-1" aria-labelledby="modalConfirmarTitulo" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-confirmar">
+                <div class="modal-header">
+                    <h5 class="modal-title d-flex align-items-center">
+                        <i id="modalConfirmarIcono" class="bi bi-question-circle-fill me-2 modal-confirmar-icono"></i>
+                        <span id="modalConfirmarTitulo">Confirmar acción</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="modalConfirmarMensaje"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="modalConfirmarAceptar">Aceptar</button>
+                </div>
+            </div>
+        </div>
+    </div> 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -280,6 +302,71 @@
                         buscar(campo.form);
                     }
                 });
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            var elemento = document.getElementById("modalConfirmar");
+            if (!elemento || typeof bootstrap === "undefined") return;
+
+            var modal = new bootstrap.Modal(elemento);
+            var titulo = document.getElementById("modalConfirmarTitulo");
+            var mensaje = document.getElementById("modalConfirmarMensaje");
+            var icono = document.getElementById("modalConfirmarIcono");
+            var aceptar = document.getElementById("modalConfirmarAceptar");
+            var pendiente = null;
+            var confirmados = new WeakSet();
+
+            document.addEventListener("submit", function (evento) {
+                var formulario = evento.target;
+                if (confirmados.has(formulario)) {
+                    confirmados.delete(formulario);
+                    return;
+                }
+
+                var enviador = evento.submitter;
+                var origen = null;
+                if (enviador && enviador.hasAttribute("data-confirmar")) {
+                    origen = enviador;
+                } else if (formulario.hasAttribute("data-confirmar")) {
+                    origen = formulario;
+                }
+                if (!origen) return;
+
+                evento.preventDefault();
+
+                var peligro = origen.hasAttribute("data-confirmar-peligro");
+                titulo.textContent = origen.getAttribute("data-confirmar-titulo") || "Confirmar acción";
+                mensaje.textContent = origen.getAttribute("data-confirmar");
+                aceptar.textContent = origen.getAttribute("data-confirmar-boton") || "Aceptar";
+                aceptar.className = "btn " + (peligro ? "btn-danger" : "btn-primary");
+                icono.className = "bi me-2 modal-confirmar-icono " +
+                    (peligro ? "bi-exclamation-triangle-fill text-danger" : "bi-question-circle-fill");
+
+                pendiente = { formulario: formulario, enviador: enviador };
+                modal.show();
+            });
+
+            aceptar.addEventListener("click", function () {
+                if (!pendiente) return;
+                var actual = pendiente;
+                pendiente = null;
+                confirmados.add(actual.formulario);
+                modal.hide();
+                if (actual.enviador) {
+                    actual.formulario.requestSubmit(actual.enviador);
+                } else {
+                    actual.formulario.requestSubmit();
+                }
+            });
+
+            elemento.addEventListener("shown.bs.modal", function () {
+                aceptar.focus();
+            });
+
+            elemento.addEventListener("hidden.bs.modal", function () {
+                pendiente = null;
             });
         })();
     </script>

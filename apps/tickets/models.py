@@ -1,4 +1,6 @@
+import uuid
 from datetime import timedelta
+from pathlib import Path
 
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -169,6 +171,8 @@ class Ticket(models.Model):
         limite = self.reabrible_hasta
         return limite is not None and timezone.now() <= limite
 
+def ruta_adjunto(instancia, nombre):
+    return f"adjuntos/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{Path(nombre).suffix.lower()}"
 
 class AdjuntoTicket(models.Model):
     ticket = models.ForeignKey(
@@ -185,7 +189,7 @@ class AdjuntoTicket(models.Model):
     )
     nombre = models.CharField(max_length=150)
     tipo_contenido = models.CharField(max_length=50)
-    contenido = models.BinaryField()
+    archivo = models.FileField(upload_to=ruta_adjunto, null=True, blank=True)
     tamano = models.PositiveIntegerField(default=0)
     subido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -367,7 +371,10 @@ class CorreoPendiente(models.Model):
 
     destinatarios = models.CharField(max_length=500)
     asunto = models.CharField(max_length=250)
-    contenido = models.BinaryField()
+    cuerpo_texto = models.TextField(blank=True)
+    cuerpo_html = models.TextField(blank=True)
+    imagenes = models.JSONField(default=list, blank=True)
+    con_firma = models.BooleanField(default=False)
     estado = models.CharField(
         max_length=10, choices=Estado.choices, default=Estado.PENDIENTE
     )

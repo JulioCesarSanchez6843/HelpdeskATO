@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case, Count, F, IntegerField, Prefetch, Q, Value, When
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -361,9 +361,7 @@ def detalle_ticket(request, pk):
     comentarios = (
         ticket.comentarios.select_related("autor")
         .annotate(autor_foto=foto_de("autor_id"))
-        .prefetch_related(
-            Prefetch("adjuntos", queryset=AdjuntoTicket.objects.defer("contenido"))
-        )
+        .prefetch_related("adjuntos")
     )
     if not es_personal:
         comentarios = comentarios.filter(interno=False)
@@ -392,9 +390,7 @@ def detalle_ticket(request, pk):
             "puede_reabrir": ticket.dentro_de_plazo_reapertura,
             "reabrible_hasta": ticket.reabrible_hasta,
             "historial": historial,
-            "adjuntos": ticket.adjuntos.filter(comentario__isnull=True).defer(
-                "contenido"
-            ),
+            "adjuntos": ticket.adjuntos.filter(comentario__isnull=True),
             "form_gestion": form_gestion,
             "puede_responder_cierre": (
                 ticket.esperando_confirmacion
@@ -505,10 +501,16 @@ def ver_adjunto(request, pk):
 
     get_object_or_404(_tickets_visibles(request.user), pk=adjunto.ticket_id)
 
-    respuesta = HttpResponse(
-        bytes(adjunto.contenido),
-        content_type=adjunto.tipo_contenido,
-    )
+    if not adjunto.archivo:
+        raise Http404
+
+    try:
+        respuesta = FileResponse(
+            adjunto.archivo.open("rb"),
+            content_type=adjunto.tipo_contenido,
+        )
+    except FileNotFoundError:
+        raise Http404
     respuesta["X-Content-Type-Options"] = "nosniff"
     respuesta["Cache-Control"] = "private, max-age=3600"
     return respuesta
@@ -689,7 +691,7 @@ def tomar_ticket(request, pk):
         ticket = get_object_or_404(Ticket.objects.select_for_update(), pk=pk)
 
         if request.user.es_superadmin:
-            messages.error(request, "El super administrador no toma tickets, solo los asigna.")
+            messages.error(request, "El super administrador no toma tickets, solo recibe los que le escalan.")
         elif request.user.sucursal_id != ticket.sucursal_id:
             messages.error(request, "Solo puedes tomar tickets de tu sucursal.")
         elif ticket.estado == Ticket.Estado.CERRADO:

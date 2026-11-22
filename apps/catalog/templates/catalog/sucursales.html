@@ -125,7 +125,7 @@
                             <i class="bi bi-pencil"></i>
                         </a>
                         <form method="post" action="{% url 'cambiar_estado_sucursal' sucursal.pk %}" class="d-inline"
-                              onsubmit="return confirm('{% if sucursal.activa %}¿Desactivar «{{ sucursal.nombre|escapejs }}»? Se desactivarán sus usuarios (excepto superadmins). Sus tickets se conservan sin cambios. {% else %}¿Activar «{{ sucursal.nombre|escapejs }}»? Sus usuarios seguirán desactivados hasta que los actives.{% endif %}');">
+                              data-confirmar="{% if sucursal.activa %}¿Desactivar «{{ sucursal.nombre }}»? Se desactivarán sus usuarios (excepto superadmins). Sus tickets se conservan sin cambios.{% else %}¿Activar «{{ sucursal.nombre }}»? Sus usuarios seguirán desactivados hasta que los actives.{% endif %}" data-confirmar-titulo="{% if sucursal.activa %}Desactivar sucursal{% else %}Activar sucursal{% endif %}" data-confirmar-boton="{% if sucursal.activa %}Desactivar{% else %}Activar{% endif %}" {% if sucursal.activa %}data-confirmar-peligro{% endif %}>
                             {% csrf_token %}
                             {% if sucursal.activa %}
                             <button class="btn btn-sm btn-outline-danger" title="Desactivar">

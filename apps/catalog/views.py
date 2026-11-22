@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.dateparse import parse_date
 from apps.accounts.utilidades import entero_positivo
@@ -167,7 +167,7 @@ def lista_sucursales(request):
     usuarios = request.GET.get("usuarios", "")
     tickets = request.GET.get("tickets", "")
 
-    sucursales = Sucursal.objects.defer("logo").annotate(
+    sucursales = Sucursal.objects.annotate(
         n_usuarios=Count("usuarios", distinct=True),
         n_tickets=Count("tickets", distinct=True),
     )
@@ -243,7 +243,7 @@ def editar_sucursal(request, pk):
 @superadmin_required
 @require_POST
 def cambiar_estado_sucursal(request, pk):
-    sucursal = get_object_or_404(Sucursal.objects.defer("logo"), pk=pk)
+    sucursal = get_object_or_404(Sucursal, pk=pk)
     nombre = sucursal.nombre
 
     if not sucursal.activa:
@@ -283,11 +283,18 @@ def cambiar_estado_sucursal(request, pk):
 @login_required
 def logo_sucursal(request, pk):
     sucursal = get_object_or_404(
-        Sucursal.objects.only("logo", "logo_actualizado_en"),
+        Sucursal,
         pk=pk,
         logo_actualizado_en__isnull=False,
     )
-    respuesta = HttpResponse(bytes(sucursal.logo), content_type="image/png")
+    if not sucursal.logo_imagen:
+        raise Http404
+    try:
+        respuesta = FileResponse(
+            sucursal.logo_imagen.open("rb"), content_type="image/png"
+        )
+    except FileNotFoundError:
+        raise Http404
     respuesta["X-Content-Type-Options"] = "nosniff"
     respuesta["Cache-Control"] = "private, max-age=3600"
     return respuesta

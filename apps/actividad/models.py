@@ -17,6 +17,7 @@ class Evento(models.Model):
         CIERRE_FORZADO = "CIERRE_FORZADO", "Cierre forzado"
         PASSWORD_SOLICITADO = "PASSWORD_SOLICITADO", "Solicitud de contraseña"
         PASSWORD_CAMBIADO = "PASSWORD_CAMBIADO", "Contraseña cambiada"
+        PASSWORD_ENVIADO = "PASSWORD_ENVIADO", "Contraseña enviada por correo"
         PASSWORD_PROPIO = "PASSWORD_PROPIO", "Contraseña propia cambiada"
         USUARIO_CREADO = "USUARIO_CREADO", "Usuario creado"
         USUARIO_ESTADO = "USUARIO_ESTADO", "Usuario activado o desactivado"

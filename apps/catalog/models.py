@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.validators import RegexValidator
 from django.db import models
 from django.db.models import Q
@@ -54,6 +56,9 @@ class Categoria(CatalogoBase):
 class Puesto(CatalogoBase):
     pass
 
+def ruta_logo(instancia, nombre):
+    return f"logos/{uuid.uuid4().hex}.png"
+
 class Sucursal(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
     codigo_distribuidor = models.CharField(
@@ -74,7 +79,7 @@ class Sucursal(models.Model):
         default="#2f2f2f",
         validators=[RegexValidator(r"^#[0-9a-fA-F]{6}$", "Color no válido.")],
     )
-    logo = models.BinaryField(null=True, blank=True, editable=False)
+    logo_imagen = models.FileField(upload_to=ruta_logo, null=True, blank=True, editable=False)
     logo_actualizado_en = models.DateTimeField(null=True, blank=True, editable=False)
     activa = models.BooleanField(default=True)
 

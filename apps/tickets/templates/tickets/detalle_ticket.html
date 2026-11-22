@@ -364,7 +364,7 @@
                                 <form
                                     method="post"
                                     action="{% url 'forzar_cierre' ticket.pk %}"
-                                    onsubmit="return confirm('¿Cerrar el ticket sin la confirmación del usuario?');"
+                                    data-confirmar="¿Cerrar el ticket sin la confirmación del usuario?" data-confirmar-titulo="Cerrar ticket" data-confirmar-boton="Cerrar ticket" data-confirmar-peligro
                                 >
                                     {% csrf_token %}
                                     <label for="justificacion" class="form-label small">Justificación del cierre *</label>
@@ -412,5 +412,28 @@
     </div>
 
 </div>
+
+<script>
+    (function () {
+        var estado = document.getElementById("id_estado");
+        var motivo = document.getElementById("id_motivo_espera");
+        if (!estado || !motivo) return;
+        var bloque = motivo.closest(".mb-3");
+        var inicial = true;
+
+        function actualizar() {
+            var enEspera = estado.value === "EN_ESPERA";
+            bloque.hidden = !enEspera;
+            motivo.disabled = !enEspera;
+            if (enEspera && !inicial && !motivo.value) {
+                motivo.focus();
+            }
+            inicial = false;
+        }
+
+        estado.addEventListener("change", actualizar);
+        actualizar();
+    })();
+</script>
 
 {% endblock %}

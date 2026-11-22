@@ -118,7 +118,7 @@ class UsuarioCrearForm(_UsuarioBaseForm):
 
     def save(self, commit=True):
         usuario = super().save(commit=False)
-        usuario.set_password(self.cleaned_data["password1"])
+        usuario.asignar_password(self.cleaned_data["password1"])
         if commit:
             usuario.save()
         return usuario
@@ -215,9 +215,3 @@ class PreferenciasForm(BootstrapFormMixin, forms.ModelForm):
             "correo_comentarios": "Comentarios nuevos",
             "correo_cierres": "Cierres, rechazos y cierres forzados",
         }
-
-class RecuperarPasswordForm(BootstrapFormMixin, forms.Form):
-    correo = forms.EmailField(
-        label="Correo electrónico",
-        widget=forms.EmailInput(attrs={"autofocus": True, "autocomplete": "email"}),
-    )

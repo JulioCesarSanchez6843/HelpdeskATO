@@ -240,14 +240,13 @@
             {% empty %}
 
                 <tr>
-
-                    <td
-                        colspan="5"
-                        class="text-center text-muted"
-                    >
-                        No tienes tickets con esos filtros.
+                    <td colspan="5" class="p-0">
+                        {% if q or estado_sel %}
+                            {% include "_estado_vacio.html" with imagen="confundido.png" titulo="Sin resultados" texto="No tienes tickets con esos filtros." %}
+                        {% else %}
+                            {% include "_estado_vacio.html" with imagen="Mascota.png" titulo="Aún no tienes tickets" texto="Cuando algo no funcione, crea uno y te ayudamos." %}
+                        {% endif %}
                     </td>
-
                 </tr>
 
             {% endfor %}

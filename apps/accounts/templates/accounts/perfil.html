@@ -27,7 +27,7 @@
                         {% if foto_version %}
                         <img src="{% url 'foto_usuario' user.pk %}?v={{ foto_version }}" alt="Foto de perfil" class="avatar-perfil">
                         {% else %}
-                        <span class="avatar-iniciales">{{ user.iniciales }}</span>
+                        <span class="avatar-iniciales av-{{ user.avatar_color }}">{{ user.iniciales }}</span>
                         {% endif %}
                         <span class="avatar-camara"><i class="bi bi-camera-fill"></i></span>
                     </label>
@@ -42,14 +42,8 @@
                 <p class="text-muted mb-2">{{ user.correo }}</p>
                 <span class="perfil-rol"><i class="bi bi-shield-check"></i>{{ user.get_rol_display }}</span>
 
-                {% if not user.es_maestro or foto_version %}
+                {% if foto_version %}
                 <div class="perfil-acciones">
-                    {% if not user.es_maestro %}
-                    <form method="post" action="{% url 'solicitar_cambio_password' %}" class="m-0">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-key me-1"></i>Cambiar contraseña</button>
-                    </form>
-                    {% endif %}
                     {% if foto_version %}
                     <form method="post" class="m-0">
                         {% csrf_token %}
@@ -126,7 +120,25 @@
                             </div>
                         </div>
                     </div>
-                    <div class="{% if user.es_superadmin %}col-md-6{% else %}col-md-12{% endif %}">
+                    <div class="col-md-6">
+                        <div class="perfil-dato">
+                            <div class="perfil-dato-icono"><i class="bi bi-key"></i></div>
+                            <div>
+                                <div class="perfil-dato-etiqueta">Contraseña</div>
+                                <div class="perfil-dato-valor">
+                                    {% with clave=user.password_visible %}
+                                    {% if clave %}
+                                    <span id="passPerfil" class="font-monospace" data-valor="{{ clave }}">••••••••</span>
+                                    <button type="button" id="btnPassPerfil" class="btn btn-sm btn-link p-0 ms-2" title="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+                                    {% else %}
+                                    No disponible
+                                    {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
                         <div class="perfil-dato">
                             <div class="perfil-dato-icono"><i class="bi bi-calendar3"></i></div>
                             <div>
@@ -147,6 +159,16 @@
             document.getElementById("formFoto").submit();
         }
     });
+    (function () {
+        var valor = document.getElementById("passPerfil");
+        var boton = document.getElementById("btnPassPerfil");
+        if (!valor || !boton) return;
+        boton.addEventListener("click", function () {
+            var oculto = valor.textContent === "••••••••";
+            valor.textContent = oculto ? valor.dataset.valor : "••••••••";
+            boton.firstElementChild.className = oculto ? "bi bi-eye-slash" : "bi bi-eye";
+        });
+    })();
 </script>
 
 {% endblock %}

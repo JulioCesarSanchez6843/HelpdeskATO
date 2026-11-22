@@ -2,6 +2,7 @@ from io import BytesIO
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db.models import Q
 from django.utils import timezone
 from PIL import Image, ImageOps
@@ -197,10 +198,14 @@ class SucursalForm(_CatalogoForm):
         sucursal = super().save(commit=False)
         logo = self.cleaned_data.get("logo_archivo")
         if logo:
-            sucursal.logo = logo
+            if sucursal.logo_imagen:
+                sucursal.logo_imagen.delete(save=False)
+            sucursal.logo_imagen.save("logo.png", ContentFile(logo), save=False)
             sucursal.logo_actualizado_en = timezone.now()
         elif self.cleaned_data.get("quitar_logo"):
-            sucursal.logo = None
+            if sucursal.logo_imagen:
+                sucursal.logo_imagen.delete(save=False)
+            sucursal.logo_imagen = None
             sucursal.logo_actualizado_en = None
         if commit:
             sucursal.save()

@@ -22,7 +22,7 @@
     </li>
     <li class="nav-item">
         <a class="nav-link" href="{% url 'mis_asignados' %}">
-            <i class="bi bi-kanban me-1"></i>Mis asignados
+            <i class="bi bi-kanban me-1"></i>{% if user.es_superadmin %}Mis escalados{% else %}Mis asignados{% endif %}
             {% if mis_activos %}
             <span class="badge bg-primary-subtle text-primary-emphasis ms-1">{{ mis_activos }}</span>
             {% endif %}
@@ -414,14 +414,13 @@
             {% empty %}
 
                 <tr>
-
-                    <td
-                        colspan="10"
-                        class="text-center text-muted"
-                    >
-                        No hay tickets con esos filtros.
+                    <td colspan="10" class="p-0">
+                        {% if q or estado_sel or prioridad_sel or asignado_sel or sucursal_sel or area_sel or categoria_sel or desde %}
+                            {% include "_estado_vacio.html" with imagen="confundido.png" titulo="Sin resultados" texto="No hay tickets con esos filtros." %}
+                        {% else %}
+                            {% include "_estado_vacio.html" with imagen="dormir.png" titulo="Todo tranquilo" texto="Todavía no hay tickets en el sistema." %}
+                        {% endif %}
                     </td>
-
                 </tr>
 
             {% endfor %}

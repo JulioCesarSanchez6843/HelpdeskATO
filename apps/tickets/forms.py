@@ -271,7 +271,7 @@ class AsignarTicketForm(BootstrapFormMixin, forms.Form):
             rol__in=[Usuario.Rol.ENCARGADO, Usuario.Rol.BECARIO],
             sucursal_id=ticket.sucursal_id,
             activo=True,
-        )
+        ).exclude(is_superuser=True)
         campo.initial = ticket.asignado_a_id
         campo.label_from_instance = lambda u: f"{u.nombre} ({u.get_rol_display()})"
 
