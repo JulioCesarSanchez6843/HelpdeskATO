@@ -100,7 +100,7 @@ class TicketDetalleSerializer(TicketListSerializer):
         return HistorialSerializer(eventos, many=True).data
 
     def get_adjuntos(self, ticket):
-        return AdjuntoSerializer(ticket.adjuntos.defer("contenido"), many=True).data
+        return AdjuntoSerializer(ticket.adjuntos.filter(comentario__isnull=True), many=True).data
 
     def get_permisos(self, ticket):
         usuario = self.context["request"].user
