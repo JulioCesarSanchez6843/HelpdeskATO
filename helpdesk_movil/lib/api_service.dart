@@ -124,8 +124,12 @@ class ApiService {
     return r;
   }
 
-  static Future<List<Ticket>> tickets() async {
-    final r = await _get('/tickets/?page_size=50');
+  static Future<List<Ticket>> tickets({String? estado, String busqueda = '', bool asignadosAMi = false}) async {
+    final params = <String>['page_size=50'];
+    if (estado != null) params.add('estado=$estado');
+    if (busqueda.isNotEmpty) params.add('q=${Uri.encodeQueryComponent(busqueda)}');
+    if (asignadosAMi) params.add('asignados_a_mi=1');
+    final r = await _get('/tickets/?${params.join('&')}');
     final d = _decode(r) as Map<String, dynamic>;
     return (d['results'] as List)
         .map((e) => Ticket.fromJson(e as Map<String, dynamic>))

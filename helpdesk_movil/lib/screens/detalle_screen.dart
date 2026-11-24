@@ -144,50 +144,16 @@ class _DetalleScreenState extends State<DetalleScreen> {
     required String etiqueta,
     required String boton,
     int minimo = 0,
-  }) async {
-    final ctrl = TextEditingController();
-    String? error;
-    final r = await showDialog<String>(
+  }) {
+    return showDialog<String>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          title: Text(titulo),
-          content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 5,
-            maxLength: 1000,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              labelText: etiqueta,
-              errorText: error,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Config.rojo),
-              onPressed: () {
-                final v = ctrl.text.trim();
-                if (v.length < minimo) {
-                  setD(() => error = 'Escribe al menos $minimo caracteres.');
-                  return;
-                }
-                Navigator.pop(ctx, v);
-              },
-              child: Text(boton),
-            ),
-          ],
-        ),
+      builder: (_) => _DialogoTexto(
+        titulo: titulo,
+        etiqueta: etiqueta,
+        boton: boton,
+        minimo: minimo,
       ),
     );
-    ctrl.dispose();
-    return r;
   }
 
   Future<void> _confirmarCierre() async {
@@ -679,6 +645,73 @@ class _AsignarSheetState extends State<_AsignarSheet> {
                     ),
                   ),
       ),
+    );
+  }
+}
+
+class _DialogoTexto extends StatefulWidget {
+  final String titulo;
+  final String etiqueta;
+  final String boton;
+  final int minimo;
+  const _DialogoTexto({
+    required this.titulo,
+    required this.etiqueta,
+    required this.boton,
+    required this.minimo,
+  });
+
+  @override
+  State<_DialogoTexto> createState() => _DialogoTextoState();
+}
+
+class _DialogoTextoState extends State<_DialogoTexto> {
+  final _ctrl = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _aceptar() {
+    final v = _ctrl.text.trim();
+    if (v.length < widget.minimo) {
+      setState(() => _error = 'Escribe al menos ${widget.minimo} caracteres.');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.titulo),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        minLines: 2,
+        maxLines: 5,
+        maxLength: 1000,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          labelText: widget.etiqueta,
+          errorText: _error,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Config.rojo),
+          onPressed: _aceptar,
+          child: Text(widget.boton),
+        ),
+      ],
     );
   }
 }
