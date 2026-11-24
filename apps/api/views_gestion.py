@@ -8,7 +8,8 @@ from apps.catalog.models import Categoria
 from apps.tickets import services
 from apps.tickets.forms import AsignarTicketForm, TicketForm, TicketGestionForm
 from apps.tickets.imagenes import ImagenInvalida
-from apps.tickets.models import Ticket
+from django.http import FileResponse, Http404
+from apps.tickets.models import AdjuntoTicket, Ticket
 from apps.tickets.views import _aplicar_respuesta, _tickets_visibles
 
 from .views import _detalle, _error
@@ -202,3 +203,20 @@ def ticket_reabrir(request, pk):
         services.reabrir_ticket(ticket, request.user, motivo)
 
     return _detalle(request, pk)
+
+@api_view(["GET"])
+def adjunto_archivo(request, pk):
+    adjuntos = AdjuntoTicket.objects.all()
+    if not request.user.es_personal:
+        adjuntos = adjuntos.exclude(comentario__interno=True)
+    adjunto = get_object_or_404(adjuntos, pk=pk)
+    get_object_or_404(_tickets_visibles(request.user), pk=adjunto.ticket_id)
+
+    if not adjunto.archivo:
+        raise Http404
+    try:
+        return FileResponse(
+            adjunto.archivo.open("rb"), content_type=adjunto.tipo_contenido
+        )
+    except FileNotFoundError:
+        raise Http404

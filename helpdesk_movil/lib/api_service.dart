@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -163,6 +164,37 @@ class ApiService {
 
   static Future<TicketDetalle> gestion(int id, Map<String, dynamic> datos) async =>
       _det(await _post('/tickets/$id/gestion/', datos));
+
+  static Future<Uint8List> imagen(int id) async {
+    final t = await token();
+    final r = await _send(() => http.get(
+          Uri.parse('${Config.baseUrl}/adjuntos/$id/'),
+          headers: {if (t != null) 'Authorization': 'Token $t'},
+        ));
+    await _validar(r);
+    return r.bodyBytes;
+  }
+
+  static Future<TicketDetalle> crearConFotos(
+      String titulo, String descripcion, List<String> rutas) async {
+    final t = await token();
+    final req = http.MultipartRequest(
+        'POST', Uri.parse('${Config.baseUrl}/tickets/nuevo/'));
+    if (t != null) req.headers['Authorization'] = 'Token $t';
+    req.fields['titulo'] = titulo;
+    req.fields['descripcion'] = descripcion;
+    for (final ruta in rutas) {
+      req.files.add(await http.MultipartFile.fromPath('imagenes', ruta));
+    }
+    http.Response resp;
+    try {
+      resp = await http.Response.fromStream(
+          await req.send().timeout(const Duration(seconds: 90)));
+    } catch (_) {
+      throw ApiException('No se pudo conectar con el servidor.');
+    }
+    return _det(await _validar(resp));
+  }
 
   static Future<TicketDetalle> crear(String titulo, String descripcion) async =>
       _det(await _post('/tickets/nuevo/',

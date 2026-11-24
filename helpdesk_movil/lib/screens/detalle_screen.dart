@@ -4,6 +4,7 @@ import '../api_service.dart';
 import '../config.dart';
 import '../models/ticket.dart';
 import '../util.dart';
+import '../widgets/imagen_adjunta.dart';
 import 'gestion_sheet.dart';
 import 'login_screen.dart';
 
@@ -422,19 +423,17 @@ class _DetalleScreenState extends State<DetalleScreen> {
               if (d.numeroSerie != null) _fila('No. de serie', d.numeroSerie!),
               const Divider(height: 24),
               Text(d.descripcion),
-              if (d.adjuntos > 0) ...[
+              if (d.adjuntosIds.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.image_outlined, size: 18),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${d.adjuntos} imagen(es) adjunta(s) · se ven en la versión web',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54),
-                      ),
-                    ),
-                  ],
+                SizedBox(
+                  height: 92,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: d.adjuntosIds.length,
+                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) =>
+                        ImagenAdjunta(id: d.adjuntosIds[i], tamano: 92),
+                  ),
                 ),
               ],
               if (d.notaResolucion != null) ...[

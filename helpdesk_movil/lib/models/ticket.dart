@@ -82,6 +82,7 @@ class TicketDetalle {
   final DateTime? slaVenceEn;
   final bool slaVencido;
   final int adjuntos;
+  final List<int> adjuntosIds;
   final List<Comentario> comentarios;
   final List<EventoHistorial> historial;
   final Permisos permisos;
@@ -97,6 +98,9 @@ class TicketDetalle {
             : DateTime.parse(j['sla_vence_en'] as String).toLocal(),
         slaVencido = j['sla_vencido'] as bool? ?? false,
         adjuntos = (j['adjuntos'] as List? ?? const []).length,
+        adjuntosIds = (j['adjuntos'] as List? ?? const [])
+            .map((e) => (e as Map<String, dynamic>)['id'] as int)
+            .toList(),
         comentarios = (j['comentarios'] as List? ?? const [])
             .map((e) => Comentario.fromJson(e as Map<String, dynamic>))
             .toList(),

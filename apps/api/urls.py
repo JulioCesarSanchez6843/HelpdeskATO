@@ -8,6 +8,7 @@ urlpatterns = [
     path("me/", views.me, name="api_me"),
     path("tickets/", views.tickets_lista, name="api_tickets"),
     path("tickets/nuevo/", views_gestion.ticket_nuevo, name="api_ticket_nuevo"),
+    path("adjuntos/<int:pk>/", views_gestion.adjunto_archivo, name="api_adjunto"),
     path("tickets/<int:pk>/", views.ticket_detalle, name="api_ticket_detalle"),
     path("tickets/<int:pk>/comentarios/", views.ticket_comentar, name="api_ticket_comentar"),
     path("tickets/<int:pk>/tomar/", views.ticket_tomar, name="api_ticket_tomar"),
