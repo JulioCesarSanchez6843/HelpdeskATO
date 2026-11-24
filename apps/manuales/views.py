@@ -16,15 +16,13 @@ from apps.accounts.decorators import (
 )
 
 from .forms import ManualForm
-from .models import Manual
+from .models import CategoriaManual, Manual
 
 
 def _categorias():
-    return (
-        Manual.objects.order_by("categoria")
-        .values_list("categoria", flat=True)
-        .distinct()
-    )
+    nombres = set(CategoriaManual.objects.values_list("nombre", flat=True))
+    nombres.update(Manual.objects.values_list("categoria", flat=True))
+    return sorted(nombres, key=str.lower)
 
 
 def _visibles(usuario):

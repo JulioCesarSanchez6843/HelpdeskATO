@@ -8,6 +8,17 @@ from django.utils import timezone
 def ruta_manual(instancia, nombre):
     return f"manuales/{timezone.now():%Y/%m}/{uuid.uuid4().hex}.pdf"
 
+class CategoriaManual(models.Model):
+    nombre = models.CharField(max_length=80, unique=True)
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "Categoría de manual"
+        verbose_name_plural = "Categorías de manuales"
+
+    def __str__(self):
+        return self.nombre
 
 class Manual(models.Model):
     class Estado(models.TextChoices):
@@ -59,3 +70,9 @@ class Manual(models.Model):
 
     def __str__(self):
         return self.titulo
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        campos = kwargs.get("update_fields")
+        if campos is None or "categoria" in campos:
+            CategoriaManual.objects.get_or_create(nombre=self.categoria)

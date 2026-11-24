@@ -5,7 +5,7 @@ from django.core.files.uploadedfile import UploadedFile
 
 from apps.accounts.forms import BootstrapFormMixin
 
-from .models import Manual
+from .models import CategoriaManual, Manual
 
 MAX_BYTES = 20 * 1024 * 1024
 
@@ -37,12 +37,14 @@ class ManualForm(BootstrapFormMixin, forms.ModelForm):
     def clean_categoria(self):
         valor = " ".join(self.cleaned_data.get("categoria", "").split())
         existente = (
-            Manual.objects.filter(categoria__iexact=valor)
+            CategoriaManual.objects.filter(nombre__iexact=valor)
+            .values_list("nombre", flat=True)
+            .first()
+            or Manual.objects.filter(categoria__iexact=valor)
             .values_list("categoria", flat=True)
             .first()
         )
         return existente or valor
-
     def clean_archivo(self):
         archivo = self.cleaned_data.get("archivo")
         if not isinstance(archivo, UploadedFile):
