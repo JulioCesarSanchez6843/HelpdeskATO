@@ -2,7 +2,7 @@
 
 Tu ticket sigue esperando tu confirmación y se cerrará automáticamente el {{ cierra_el|date:"d/m/Y" }} si no respondes.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket: {{ ticket.titulo }}
 
 Nota de resolución:
 {{ ticket.nota_resolucion }}

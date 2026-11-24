@@ -1,6 +1,6 @@
 {% autoescape off %}Hola {{ destinatario.nombre }},
 
-El ticket #{{ ticket.pk }} está por agotar su tiempo de atención (SLA).
+El ticket {{ ticket.folio }} está por agotar su tiempo de atención (SLA).
 
 {{ ticket.titulo }}
 Prioridad: {{ ticket.get_prioridad_display }}

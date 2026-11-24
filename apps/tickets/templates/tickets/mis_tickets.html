@@ -194,7 +194,6 @@
         <thead>
 
             <tr>
-                <th>ID</th>
                 <th>Título</th>
                 <th>Área</th>
                 <th>Estado</th>
@@ -214,11 +213,7 @@
                 >
 
                     <td>
-                        <code>#{{ ticket.pk }}</code>
-                    </td>
-
-                    <td class="fw-semibold">
-                        {{ ticket.titulo }}
+                        <div class="fw-semibold">{{ ticket.titulo }}</div>
                     </td>
 
                     <td>
@@ -240,7 +235,7 @@
             {% empty %}
 
                 <tr>
-                    <td colspan="5" class="p-0">
+                    <td colspan="4" class="p-0">
                         {% if q or estado_sel %}
                             {% include "_estado_vacio.html" with imagen="confundido.png" titulo="Sin resultados" texto="No tienes tickets con esos filtros." %}
                         {% else %}

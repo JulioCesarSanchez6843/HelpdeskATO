@@ -37,7 +37,7 @@
                 <div class="modal-body text-center pt-0 pb-4 px-4">
                     <div class="encuesta-icono"><i class="bi bi-emoji-smile"></i></div>
                     <h5 class="mb-1" id="tituloEncuesta">¿Cómo fue la atención?</h5>
-                    <p class="text-muted small mb-3">Ticket #{{ ticket.pk }} — {{ ticket.titulo }}</p>
+                    <p class="text-muted small mb-3">{% if user.es_personal %}Ticket {{ ticket.folio }} — {% endif %}{{ ticket.titulo }}</p>
 
                     <form method="post" action="{% url 'responder_encuesta' ticket.pk %}">
                         {% csrf_token %}

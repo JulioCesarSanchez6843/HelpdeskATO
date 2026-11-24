@@ -22,7 +22,7 @@
       <div class="card shadow-sm border-success">
         <div class="card-body">
           <h4 class="card-title text-success">Ticket en proceso</h4>
-          <p class="mb-3">El ticket #{{ ticket.pk }} pasó a «En proceso» y se avisó al usuario.</p>
+          <p class="mb-3">El ticket {{ ticket.folio }} pasó a «En proceso» y se avisó al usuario.</p>
           <a href="{% url 'detalle_ticket' ticket.pk %}" class="btn btn-primary">Abrir el ticket</a>
         </div>
       </div>

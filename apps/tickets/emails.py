@@ -75,6 +75,7 @@ def construir(
             **contexto,
             "firma_cid": firma[0] if firma else "",
             "imagenes": [cid for cid, _, _ in imagenes],
+            "es_personal": usuario.es_personal,
         }
         if "ticket" in contexto:
             datos["url_ticket"] = acceso.url_con_acceso(usuario, contexto["ticket"])
@@ -82,7 +83,7 @@ def construir(
             datos.update(contexto_usuario(usuario))
 
         mensaje = mail.EmailMultiAlternatives(
-            subject=_una_linea(asunto),
+            subject=_una_linea(asunto(usuario) if callable(asunto) else asunto),
             body=render_to_string(f"{carpeta}/{plantilla}.txt", datos),
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[usuario.correo],

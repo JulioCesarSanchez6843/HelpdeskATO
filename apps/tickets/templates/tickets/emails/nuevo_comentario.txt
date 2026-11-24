@@ -1,6 +1,6 @@
 {% autoescape off %}Hola {{ destinatario.nombre }},
 
-{{ autor.nombre }} escribió en el ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+{{ autor.nombre }} escribió en {% if es_personal %}el ticket {{ ticket.folio }}{% else %}tu ticket{% endif %}: {{ ticket.titulo }}
 
 {{ comentario.contenido }}
 {% if num_adjuntos %}
