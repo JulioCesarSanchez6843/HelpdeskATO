@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+    .mn { max-width: 1400px; margin: 0 auto 2.5rem; }
+
+    .mn-barra {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .8rem 1.2rem;
+        margin-bottom: 1rem;
+    }
+    .mn-barra h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+    .mn-barra p { margin: .15rem 0 0; font-size: .9rem; color: #6b7280; }
+
+    .mn-grid {
+        display: grid;
+        grid-template-columns: 330px minmax(0, 1fr);
+        gap: 1rem;
+        align-items: start;
+    }
+    .mn-panel {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: .9rem;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, .06);
+    }
+
+    .mn-lado {
+        position: sticky;
+        top: 1rem;
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 2rem);
+        overflow: hidden;
+    }
+    .mn-lado-top { padding: .85rem .85rem .75rem; border-bottom: 1px solid #eef0f3; }
+    .mn-lado-lista { flex: 1 1 auto; overflow-y: auto; padding: .4rem .6rem 1rem; scrollbar-width: thin; }
+
+    .mn-busqueda { position: relative; }
+    .mn-busqueda i {
+        position: absolute;
+        left: .85rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        pointer-events: none;
+    }
+    .mn-busqueda input {
+        width: 100%;
+        padding: .5rem .9rem .5rem 2.3rem;
+        font-size: .9rem;
+        color: #111827;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: .6rem;
+        outline: none;
+        transition: border-color .15s, box-shadow .15s, background-color .15s;
+    }
+    .mn-busqueda input:focus {
+        background: #fff;
+        border-color: var(--tollocan-rojo);
+        box-shadow: 0 0 0 3px rgba(var(--tollocan-rgb), .12);
+    }
+
+    .mn-cat {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        margin: .9rem 0 .25rem;
+        padding: 0 .4rem;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #6b7280;
+    }
+    .mn-cat-pend { color: #8a5a00; }
+    .mn-contador {
+        margin-left: auto;
+        padding: 0 .5rem;
+        font-size: .7rem;
+        color: #8a5a00;
+        background: #fff4d6;
+        border-radius: 2rem;
+    }
+
+    .mn-indice { margin: 0; padding: 0; list-style: none; }
+    .mn-item {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .5rem .6rem;
+        font-size: .9rem;
+        line-height: 1.3;
+        color: #374151;
+        text-decoration: none;
+        border-left: 3px solid transparent;
+        border-radius: .55rem;
+        transition: background-color .15s, color .15s;
+    }
+    .mn-item i { flex: 0 0 auto; font-size: 1.05rem; color: var(--tollocan-rojo); }
+    .mn-nombre { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .mn-peso { flex: 0 0 auto; font-size: .76rem; color: #9ca3af; font-variant-numeric: tabular-nums; }
+    .mn-item:hover { background: #f5f6f8; color: #111827; }
+    .mn-item.activo {
+        font-weight: 600;
+        color: var(--tollocan-rojo);
+        background: rgba(var(--tollocan-rgb), .08);
+        border-left-color: var(--tollocan-rojo);
+    }
+    .mn-chip-pend {
+        flex: 0 0 auto;
+        padding: .08rem .5rem;
+        font-size: .68rem;
+        font-weight: 700;
+        white-space: nowrap;
+        color: #8a5a00;
+        background: #fff4d6;
+        border: 1px solid #f0d58a;
+        border-radius: 2rem;
+    }
+    .mn-sin-resultados, .mn-sin-manuales { margin: 1rem .4rem 0; font-size: .88rem; color: #9ca3af; }
+
+        .mn-chip-elim {
+        flex: 0 0 auto;
+        padding: .08rem .5rem;
+        font-size: .68rem;
+        font-weight: 700;
+        white-space: nowrap;
+        color: #9b1c1c;
+        background: #fde8e8;
+        border: 1px solid #f5b5b5;
+        border-radius: 2rem;
+    }
+    .mn-cat-elim { color: #9b1c1c; }
+    .mn-contador-elim { color: #9b1c1c; background: #fde8e8; }
+    .mn-aviso {
+        margin: .75rem 1.1rem 0;
+        padding: .6rem .8rem;
+        font-size: .85rem;
+        color: #7a1f1f;
+        background: #fdf1f1;
+        border: 1px solid #f5c2c2;
+        border-radius: .6rem;
+    }
+    .mn-aviso[hidden] { display: none; }
+    .mn-solicitud-form {
+        margin: .75rem 1.1rem 0;
+        padding: .75rem .9rem;
+        background: #fffaf0;
+        border: 1px solid #f0d58a;
+        border-radius: .6rem;
+    }
+
+    .mn-visor { display: flex; flex-direction: column; min-height: 640px; overflow: hidden; }
+    .mn-vacio {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 560px;
+        text-align: center;
+        color: #9ca3af;
+    }
+    .mn-vacio[hidden] { display: none; }
+    .mn-vacio img { width: 130px; margin-bottom: 1rem; opacity: .9; }
+    .mn-vacio h5 { color: #374151; }
+
+    .mn-lector { display: flex; flex: 1 1 auto; flex-direction: column; }
+    .mn-lector[hidden] { display: none; }
+    .mn-cabecera {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .7rem 1rem;
+        padding: .9rem 1.1rem;
+        border-bottom: 1px solid #eef0f3;
+    }
+    .mn-cab-texto { flex: 1 1 240px; min-width: 0; }
+    .mn-lector-cat {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        margin: 0 0 .15rem;
+        font-size: .74rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--tollocan-rojo);
+    }
+    .mn-lector-cat .mn-chip-pend { letter-spacing: 0; text-transform: none; }
+    .mn-lector h2 { margin: 0; font-size: 1.25rem; font-weight: 700; color: #111827; overflow-wrap: anywhere; }
+    .mn-desc { margin: .2rem 0 0; font-size: .9rem; color: #4b5563; }
+    .mn-meta { margin: .25rem 0 0; font-size: .78rem; color: #9ca3af; }
+    .mn-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .mn-marco { flex: 1 1 auto; height: calc(100vh - 14rem); min-height: 560px; background: #f3f4f6; }
+    .mn-marco iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+    @media (max-width: 991.98px) {
+        .mn-grid { grid-template-columns: minmax(0, 1fr); }
+        .mn-lado { position: static; max-height: 340px; }
+        .mn-visor { min-height: 0; }
+        .mn-vacio { min-height: 300px; }
+        .mn-marco { height: 70vh; min-height: 440px; }
+    }
+</style>
+
+<div class="mn" id="mnRaiz">
+    <div class="mn-barra">
+        <div>
+            <h1>Manuales técnicos</h1>
+            <p>Guías y procedimientos en PDF para el equipo de soporte.</p>
+        </div>
+        {% if user.es_admin %}
+        <a href="{% url 'nuevo_manual' %}" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Subir manual</a>
+        {% endif %}
+    </div>
+
+    {% include "manuales/_pestanas.html" with pestana="manuales" %}
+
+    <div class="mn-grid">
+        <aside class="mn-panel mn-lado">
+            <div class="mn-lado-top">
+                <div class="mn-busqueda">
+                    <i class="bi bi-search"></i>
+                    <input type="search" id="mnBuscar" placeholder="Buscar un manual..." autocomplete="off">
+                </div>
+                <select id="mnFiltroCategoria" class="form-select form-select-sm mt-2" aria-label="Filtrar por categoría">
+                    <option value="">Todas las categorías</option>
+                    {% for categoria in categorias %}
+                    <option value="{{ categoria }}">{{ categoria }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <nav class="mn-lado-lista" aria-label="Índice de manuales">
+                {% if solicitudes %}
+                <section class="mn-grupo">
+                    <p class="mn-cat mn-cat-elim">
+                        <i class="bi bi-trash3"></i>Solicitudes de eliminación
+                        <span class="mn-contador mn-contador-elim">{{ solicitudes|length }}</span>
+                    </p>
+                    <ul class="mn-indice">
+                        {% for manual in solicitudes %}
+                        {% include "manuales/_item.html" %}
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endif %}
+
+                {% regroup aprobados by categoria as grupos %}
+                {% for grupo in grupos %}
+                <section class="mn-grupo">
+                    <p class="mn-cat"><i class="bi bi-folder2-open"></i>{{ grupo.grouper }}</p>
+                    <ul class="mn-indice">
+                        {% for manual in grupo.list %}
+                        {% include "manuales/_item.html" %}
+                        {% endfor %}
+                    </ul>
+                </section>
+                {% endfor %}
+
+                {% if not pendientes and not aprobados and not solicitudes %}
+                <p class="mn-sin-manuales">Aún no hay manuales publicados.</p>
+                {% endif %}
+                <p class="mn-sin-resultados" id="mnSinResultados" hidden>No encontramos manuales con esa búsqueda.</p>
+            </nav>
+        </aside>
+
+        <article class="mn-panel mn-visor">
+            <div class="mn-vacio" id="mnVacio">
+                <img src="{% static 'img/mascota/curioso.png' %}" alt="">
+                <h5>Elige un manual del índice</h5>
+                <p class="mb-0">Aquí podrás leerlo sin salir del sistema.</p>
+            </div>
+
+            <div class="mn-lector" id="mnLector" hidden>
+                <div class="mn-cabecera">
+                    <div class="mn-cab-texto">
+                        <p class="mn-lector-cat">
+                            <span id="mnCategoria"></span>
+                            <span class="mn-chip-pend" id="mnEstado" hidden>Pendiente de aprobación</span>
+                        </p>
+                        <h2 id="mnTitulo"></h2>
+                        <p class="mn-desc" id="mnDescripcion"></p>
+                        <p class="mn-meta" id="mnMeta"></p>
+                    </div>
+                    <div class="mn-acciones">
+                        {% if user.es_superadmin %}
+                        <form id="mnAprobar" method="post" hidden data-confirmar-titulo="Aprobar manual" data-confirmar-boton="Aprobar" data-confirmar="¿Aprobar este manual y hacerlo visible para todo el equipo?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>Aprobar</button>
+                        </form>
+                        {% endif %}
+                        {% if user.es_admin %}
+                        <form id="mnCancelar" method="post" hidden data-confirmar-titulo="Cancelar manual" data-confirmar-boton="Cancelar manual" data-confirmar-peligro data-confirmar="¿Cancelar este manual pendiente? Se eliminará el PDF que subiste.">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Cancelar subida</button>
+                        </form>
+                        <button type="button" id="mnBtnSolicitar" class="btn btn-sm btn-outline-warning" hidden data-bs-toggle="collapse" data-bs-target="#mnSolicitud"><i class="bi bi-send me-1"></i>Solicitar eliminación</button>
+                        {% endif %}
+                        {% if user.es_superadmin %}
+                        <form id="mnRechazar" method="post" hidden data-confirmar-titulo="Conservar manual" data-confirmar-boton="Conservar" data-confirmar="¿Rechazar la solicitud y conservar este manual?">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-shield-check me-1"></i>Conservar manual</button>
+                        </form>
+                        {% endif %}
+                        <a id="mnAbrir" target="_blank" rel="noopener" class="btn btn-sm btn-primary"><i class="bi bi-box-arrow-up-right me-1"></i>Abrir</a>
+                        <a id="mnDescargar" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Descargar</a>
+                        {% if user.es_superadmin %}
+                        <a id="mnEditar" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="bi bi-pencil"></i></a>
+                        <form id="mnEliminar" method="post" class="d-inline" data-confirmar-titulo="Eliminar manual" data-confirmar-boton="Eliminar" data-confirmar-peligro>
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="bi bi-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mn-aviso" id="mnAviso" hidden></div>
+                {% if user.es_admin %}
+                <div class="collapse" id="mnSolicitud">
+                    <form id="mnSolicitar" method="post" class="mn-solicitud-form">
+                        {% csrf_token %}
+                        <label for="mnMotivo" class="form-label small mb-1">Motivo de la eliminación (obligatorio)</label>
+                        <textarea id="mnMotivo" name="motivo" rows="2" maxlength="300" required class="form-control form-control-sm"></textarea>
+                        <div class="mt-2 text-end">
+                            <button type="submit" class="btn btn-sm btn-warning">Enviar solicitud al super administrador</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+                <div class="mn-marco">
+                    <iframe id="mnMarco" title="Visor de manual"></iframe>
+                </div>
+            </div>
+        </article>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var raiz = document.getElementById("mnRaiz");
+        var items = Array.prototype.slice.call(raiz.querySelectorAll(".mn-item"));
+        var grupos = Array.prototype.slice.call(raiz.querySelectorAll(".mn-grupo"));
+        var buscar = document.getElementById("mnBuscar");
+        var sinResultados = document.getElementById("mnSinResultados");
+        var vacio = document.getElementById("mnVacio");
+        var lector = document.getElementById("mnLector");
+        var marco = document.getElementById("mnMarco");
+        var categoria = document.getElementById("mnCategoria");
+        var estado = document.getElementById("mnEstado");
+        var titulo = document.getElementById("mnTitulo");
+        var descripcion = document.getElementById("mnDescripcion");
+        var meta = document.getElementById("mnMeta");
+        var abrir = document.getElementById("mnAbrir");
+        var descargar = document.getElementById("mnDescargar");
+        var aprobar = document.getElementById("mnAprobar");
+        var editar = document.getElementById("mnEditar");
+        var eliminar = document.getElementById("mnEliminar");
+        var cancelar = document.getElementById("mnCancelar");
+        var btnSolicitar = document.getElementById("mnBtnSolicitar");
+        var solicitud = document.getElementById("mnSolicitud");
+        var formSolicitar = document.getElementById("mnSolicitar");
+        var rechazar = document.getElementById("mnRechazar");
+        var aviso = document.getElementById("mnAviso");
+        var filtroCategoria = document.getElementById("mnFiltroCategoria");
+        var actual = null;
+
+        function normalizar(texto) {
+            return (texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function mostrar(item, actualizarHash) {
+            if (!item || item === actual) return;
+            actual = item;
+            items.forEach(function (i) {
+                i.classList.toggle("activo", i === item);
+            });
+
+            vacio.hidden = true;
+            lector.hidden = false;
+
+            var pendiente = item.dataset.estado === "PENDIENTE";
+            categoria.textContent = item.dataset.categoria;
+            estado.hidden = !pendiente;
+            titulo.textContent = item.dataset.titulo;
+            descripcion.textContent = item.dataset.descripcion;
+            descripcion.hidden = !item.dataset.descripcion;
+
+            var partes = ["PDF", item.dataset.tamano, "Actualizado el " + item.dataset.fecha];
+            if (item.dataset.subio) partes.push("Subido por " + item.dataset.subio);
+            meta.textContent = partes.join(" · ");
+
+            abrir.href = item.dataset.url;
+            descargar.href = item.dataset.descarga;
+            if (aprobar) {
+                aprobar.hidden = !(pendiente && item.dataset.aprobar);
+                if (item.dataset.aprobar) aprobar.action = item.dataset.aprobar;
+            }
+            if (editar) editar.href = item.dataset.editar;
+            if (eliminar) {
+                eliminar.action = item.dataset.eliminar;
+                eliminar.setAttribute(
+                    "data-confirmar",
+                    "¿Eliminar el manual «" + item.dataset.titulo + "»? Esta acción no se puede deshacer."
+                );
+            }
+
+            if (cancelar) {
+                cancelar.hidden = !item.dataset.cancelar;
+                if (item.dataset.cancelar) cancelar.action = item.dataset.cancelar;
+            }
+            if (btnSolicitar) {
+                btnSolicitar.hidden = !item.dataset.solicitar;
+                solicitud.classList.remove("show");
+                formSolicitar.reset();
+                formSolicitar.action = item.dataset.solicitar || "";
+            }
+            if (rechazar) {
+                rechazar.hidden = !item.dataset.rechazar;
+                if (item.dataset.rechazar) rechazar.action = item.dataset.rechazar;
+            }
+            if (item.dataset.solicitud) {
+                var texto = "Eliminación solicitada por " + item.dataset.solicitud + ".";
+                if (item.dataset.motivo) texto += " Motivo: " + item.dataset.motivo;
+                aviso.textContent = texto;
+                aviso.hidden = false;
+            } else {
+                aviso.textContent = "";
+                aviso.hidden = true;
+            }
+
+            marco.src = item.dataset.url + "#navpanes=0";
+
+            if (actualizarHash) {
+                window.history.replaceState(null, "", "#m-" + item.dataset.id);
+            }
+        }
+
+        items.forEach(function (item) {
+            item.addEventListener("click", function (evento) {
+                evento.preventDefault();
+                mostrar(item, true);
+                if (window.innerWidth < 992) {
+                    lector.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            });
+        });
+
+        function filtrar() {
+            var termino = normalizar(buscar.value.trim());
+            var categoriaElegida = filtroCategoria ? filtroCategoria.value : "";
+            var visibles = 0;
+            items.forEach(function (item) {
+                var coincideTexto = !termino || normalizar(item.dataset.busqueda).indexOf(termino) !== -1;
+                var coincideCategoria = !categoriaElegida || item.dataset.categoria === categoriaElegida;
+                var coincide = coincideTexto && coincideCategoria;
+                item.parentElement.hidden = !coincide;
+                if (coincide) visibles += 1;
+            });
+            grupos.forEach(function (grupo) {
+                grupo.hidden = !grupo.querySelector("li:not([hidden])");
+            });
+            sinResultados.hidden = visibles !== 0 || !items.length;
+        }
+
+        if (buscar) buscar.addEventListener("input", filtrar);
+        if (filtroCategoria) filtroCategoria.addEventListener("change", filtrar);
+
+        var inicial = null;
+        var coincidencia = /^#m-(\d+)$/.exec(window.location.hash);
+        if (coincidencia) {
+            inicial = items.filter(function (i) {
+                return i.dataset.id === coincidencia[1];
+            })[0];
+        }
+        mostrar(inicial || items[0], false);
+    })();
+</script>
+{% endblock %}

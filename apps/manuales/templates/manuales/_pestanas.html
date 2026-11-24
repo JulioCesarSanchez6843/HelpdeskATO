@@ -1,0 +1,15 @@
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link{% if pestana == 'manuales' %} active{% endif %}" href="{% url 'lista_manuales' %}">
+            <i class="bi bi-journal-text me-1"></i>Manuales
+        </a>
+    </li>
+    {% if user.es_admin %}
+    <li class="nav-item">
+        <a class="nav-link{% if pestana == 'gestion' %} active{% endif %}" href="{% url 'gestion_manuales' %}">
+            {% if user.es_superadmin %}<i class="bi bi-patch-check me-1"></i>Aprobaciones{% else %}<i class="bi bi-send-check me-1"></i>Mis envíos{% endif %}
+            {% if por_revisar %}<span class="badge text-bg-warning ms-1">{{ por_revisar }}</span>{% endif %}
+        </a>
+    </li>
+    {% endif %}
+</ul>

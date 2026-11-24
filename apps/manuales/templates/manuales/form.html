@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .pdf-zona-cuerpo {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        padding: 2rem 1rem 1.6rem;
+        text-align: center;
+        cursor: pointer;
+        border: 2px dashed #cbd2dd;
+        border-radius: 1.1rem;
+        background:
+            radial-gradient(circle at 20% 15%, rgba(var(--tollocan-rgb), .07), transparent 45%),
+            radial-gradient(circle at 85% 90%, rgba(var(--tollocan-rgb), .06), transparent 45%),
+            #fff;
+        transition: border-color .2s, transform .2s, box-shadow .2s, background-color .2s;
+    }
+    .pdf-zona-cuerpo[hidden] { display: none; }
+    .pdf-zona-cuerpo:hover,
+    .pdf-zona-cuerpo.arrastrando {
+        border-color: var(--tollocan-rojo);
+        box-shadow: 0 10px 26px rgba(var(--tollocan-rgb), .16);
+    }
+    .pdf-zona-cuerpo.arrastrando { transform: scale(1.015); border-style: solid; }
+
+    .pdf-hoja {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 76px;
+        height: 92px;
+        margin-bottom: .6rem;
+        font-size: 2.6rem;
+        color: #fff;
+        border-radius: .7rem .7rem .7rem 1.6rem;
+        background: linear-gradient(145deg, var(--tollocan-rojo), var(--tollocan-rojo-oscuro));
+        box-shadow: 0 10px 20px rgba(var(--tollocan-rgb), .32);
+        transform: rotate(-4deg);
+        transition: transform .25s;
+    }
+    .pdf-zona-cuerpo:hover .pdf-hoja,
+    .pdf-zona-cuerpo.arrastrando .pdf-hoja { transform: rotate(0deg) translateY(-4px); }
+    .pdf-flecha {
+        position: absolute;
+        right: -14px;
+        bottom: -12px;
+        display: inline-flex;
+        font-size: 1.7rem;
+        color: #198754;
+        background: #fff;
+        border-radius: 50%;
+        line-height: 1;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, .2);
+        animation: pdf-rebote 1.8s ease-in-out infinite;
+    }
+    .pdf-flecha i { color: #198754; }
+    @keyframes pdf-rebote {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+    .pdf-zona-titulo { font-size: 1.1rem; font-weight: 700; color: #2c261b; }
+    .pdf-zona-sub { font-size: .9rem; color: #6b7280; }
+    .pdf-zona-sub u { color: var(--tollocan-rojo); text-underline-offset: 3px; }
+    .pdf-etiquetas { display: flex; gap: .4rem; margin-top: .6rem; }
+    .pdf-etiquetas span {
+        padding: .15rem .65rem;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        color: var(--tollocan-rojo);
+        border: 1px solid rgba(var(--tollocan-rgb), .35);
+        border-radius: 2rem;
+        background: rgba(var(--tollocan-rgb), .06);
+    }
+
+    .pdf-listo,
+    .pdf-actual {
+        display: flex;
+        align-items: center;
+        gap: .8rem;
+        padding: .8rem 1rem;
+        border: 1px solid #d9e6dc;
+        border-radius: 1rem;
+        background: linear-gradient(135deg, #f3faf5, #ffffff);
+        box-shadow: 0 4px 14px rgba(25, 135, 84, .1);
+        animation: pdf-aparecer .35s cubic-bezier(.2, .7, .2, 1) both;
+    }
+    .pdf-listo[hidden], .pdf-actual[hidden] { display: none; }
+    .pdf-actual { border-color: #e3dac0; background: linear-gradient(135deg, #fbf7ee, #ffffff); box-shadow: none; margin-bottom: .75rem; }
+    @keyframes pdf-aparecer {
+        from { opacity: 0; transform: translateY(8px) scale(.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .pdf-insignia {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 52px;
+        font-size: .75rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        color: #fff;
+        border-radius: .45rem .45rem .45rem .9rem;
+        background: linear-gradient(145deg, var(--tollocan-rojo), var(--tollocan-rojo-oscuro));
+    }
+    .pdf-datos { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+    .pdf-datos strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pdf-datos small { color: #6b7280; }
+    .pdf-datos .pdf-ok { color: #198754; font-weight: 600; }
+
+    .pdf-previa-caja {
+        position: relative;
+        height: 68vh;
+        min-height: 460px;
+        overflow: hidden;
+        border-radius: .8rem;
+        background: #f4f5f8;
+    }
+    .pdf-previa-caja iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+    .pdf-previa-vacia {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .4rem;
+        padding: 1rem;
+        text-align: center;
+        color: #8a93a3;
+    }
+    .pdf-previa-vacia[hidden] { display: none; }
+    .pdf-previa-vacia i { font-size: 2.8rem; opacity: .6; }
+</style>
+
+<h3 class="mb-1">{{ titulo }}</h3>
+<p class="text-muted">Completa los datos y suelta el PDF. A la derecha verás cómo se va a ver.</p>
+
+{% if not user.es_superadmin and not form.instance.pk %}
+<div class="alert alert-warning py-2 small"><i class="bi bi-hourglass-split me-1"></i>Tu manual quedará pendiente y será visible cuando un super administrador lo apruebe.</div>
+{% endif %}
+
+<div class="row g-4">
+    <form method="post" enctype="multipart/form-data" class="col-lg-6">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+        <div class="row g-3 mb-3">
+            <div class="col-sm-7">
+                <label for="{{ form.titulo.id_for_label }}" class="form-label">{{ form.titulo.label }} *</label>
+                {{ form.titulo }}
+                {% for error in form.titulo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-sm-5">
+                <label for="{{ form.categoria.id_for_label }}" class="form-label">{{ form.categoria.label }} *</label>
+                <div class="input-group">
+                    {{ form.categoria }}
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ver categorías existentes"></button>
+                    <ul class="dropdown-menu dropdown-menu-end" id="listaCategoriasMenu" style="max-height: 260px; overflow-y: auto;">
+                        {% for categoria in categorias %}
+                        <li><button type="button" class="dropdown-item" data-categoria="{{ categoria }}">{{ categoria }}</button></li>
+                        {% empty %}
+                        <li><span class="dropdown-item-text text-muted small">Aún no hay categorías. Escribe la primera.</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="form-text">Elige una de la lista o escribe una nueva.</div>
+                {% for error in form.categoria.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label for="{{ form.descripcion.id_for_label }}" class="form-label">{{ form.descripcion.label }}</label>
+            {{ form.descripcion }}
+            {% for error in form.descripcion.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+
+        <div class="mb-4">
+            <span class="form-label d-block">{{ form.archivo.label }}{% if form.archivo.field.required %} *{% endif %}</span>
+
+            {% if form.instance.pk and form.instance.archivo %}
+            <div class="pdf-actual" id="pdfActual">
+                <span class="pdf-insignia">PDF</span>
+                <div class="pdf-datos">
+                    <strong>{{ form.instance.nombre_original|default:form.instance.titulo }}</strong>
+                    <small>PDF actual · {{ form.instance.tamano|filesizeformat }}</small>
+                </div>
+            </div>
+            {% endif %}
+
+            <label for="{{ form.archivo.id_for_label }}" class="pdf-zona-cuerpo" id="pdfCuerpo">
+                <span class="pdf-hoja">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                    <span class="pdf-flecha"><i class="bi bi-arrow-up-circle-fill"></i></span>
+                </span>
+                <span class="pdf-zona-titulo">{% if form.instance.pk %}Suelta aquí un PDF para reemplazarlo{% else %}Suelta tu PDF aquí{% endif %}</span>
+                <span class="pdf-zona-sub">o <u>búscalo en tu equipo</u></span>
+                <span class="pdf-etiquetas"><span>PDF</span><span>MÁX. 20 MB</span></span>
+            </label>
+            {{ form.archivo }}
+
+            <div class="pdf-listo" id="pdfListo" hidden>
+                <span class="pdf-insignia">PDF</span>
+                <div class="pdf-datos">
+                    <strong id="pdfNombre"></strong>
+                    <small><span class="pdf-ok"><i class="bi bi-check-circle-fill me-1"></i>Listo para subir</span> · <span id="pdfPeso"></span></small>
+                </div>
+                <label for="{{ form.archivo.id_for_label }}" class="btn btn-sm btn-outline-secondary mb-0">Cambiar</label>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="pdfQuitar" title="Quitar"><i class="bi bi-x-lg"></i></button>
+            </div>
+
+            {% if form.archivo.help_text %}<div class="form-text">{{ form.archivo.help_text }}</div>{% endif %}
+            {% for error in form.archivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <div id="pdfAviso" class="text-danger small mt-1"></div>
+        </div>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{% url 'lista_manuales' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="card-title">Vista previa</h6>
+                <div class="pdf-previa-caja">
+                    <iframe id="pdfMarco" title="Vista previa del PDF" hidden
+                            data-original="{% if form.instance.pk and form.instance.archivo %}{% url 'ver_manual' form.instance.pk %}?v={{ form.instance.actualizado_en|date:'U' }}{% endif %}"></iframe>
+                    <div class="pdf-previa-vacia" id="pdfVacia">
+                        <i class="bi bi-file-earmark-richtext"></i>
+                        <span>Aquí verás el PDF que elijas.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var MAX_BYTES = 20 * 1024 * 1024;
+        var entrada = document.getElementById("{{ form.archivo.id_for_label }}");
+        var cuerpo = document.getElementById("pdfCuerpo");
+        var listo = document.getElementById("pdfListo");
+        var nombre = document.getElementById("pdfNombre");
+        var peso = document.getElementById("pdfPeso");
+        var quitar = document.getElementById("pdfQuitar");
+        var aviso = document.getElementById("pdfAviso");
+        var actual = document.getElementById("pdfActual");
+        var marco = document.getElementById("pdfMarco");
+        var vacia = document.getElementById("pdfVacia");
+        var original = marco.getAttribute("data-original");
+        var temporal = "";
+
+        function formato(bytes) {
+            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
+            return Math.max(1, Math.round(bytes / 1024)) + " KB";
+        }
+
+        function mostrarVista(origen) {
+            if (origen) {
+                marco.src = origen + "#navpanes=0";
+                marco.hidden = false;
+                vacia.hidden = true;
+            } else {
+                marco.removeAttribute("src");
+                marco.hidden = true;
+                vacia.hidden = false;
+            }
+        }
+
+        function liberar() {
+            if (temporal) {
+                URL.revokeObjectURL(temporal);
+                temporal = "";
+            }
+        }
+
+        function actualizar() {
+            var archivo = entrada.files[0];
+            liberar();
+            if (archivo) {
+                temporal = URL.createObjectURL(archivo);
+                nombre.textContent = archivo.name;
+                peso.textContent = formato(archivo.size);
+                listo.hidden = false;
+                cuerpo.hidden = true;
+                if (actual) actual.hidden = true;
+                mostrarVista(temporal);
+            } else {
+                listo.hidden = true;
+                cuerpo.hidden = false;
+                if (actual) actual.hidden = false;
+                mostrarVista(original);
+            }
+        }
+
+        function elegir() {
+            aviso.textContent = "";
+            var archivo = entrada.files[0];
+            if (archivo) {
+                if (!/\.pdf$/i.test(archivo.name)) {
+                    aviso.textContent = "Solo se permiten archivos PDF.";
+                    entrada.value = "";
+                } else if (archivo.size > MAX_BYTES) {
+                    aviso.textContent = "El PDF no puede pesar más de 20 MB.";
+                    entrada.value = "";
+                }
+            }
+            actualizar();
+        }
+
+        entrada.addEventListener("change", elegir);
+
+        ["dragenter", "dragover"].forEach(function (evento) {
+            cuerpo.addEventListener(evento, function (e) {
+                e.preventDefault();
+                cuerpo.classList.add("arrastrando");
+            });
+        });
+        ["dragleave", "drop"].forEach(function (evento) {
+            cuerpo.addEventListener(evento, function (e) {
+                e.preventDefault();
+                cuerpo.classList.remove("arrastrando");
+            });
+        });
+        cuerpo.addEventListener("drop", function (e) {
+            if (e.dataTransfer.files.length) {
+                entrada.files = e.dataTransfer.files;
+                elegir();
+            }
+        });
+
+        quitar.addEventListener("click", function () {
+            entrada.value = "";
+            aviso.textContent = "";
+            actualizar();
+        });
+
+        actualizar();
+    })();
+</script>
+<script>
+    (function () {
+        var campo = document.getElementById("{{ form.categoria.id_for_label }}");
+        var menu = document.getElementById("listaCategoriasMenu");
+        if (!campo || !menu) return;
+        menu.addEventListener("click", function (evento) {
+            var boton = evento.target.closest("[data-categoria]");
+            if (!boton) return;
+            campo.value = boton.getAttribute("data-categoria");
+            campo.focus();
+        });
+    })();
+</script>
+{% endblock %}

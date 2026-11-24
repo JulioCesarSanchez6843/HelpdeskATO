@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "apps.tickets",
     "apps.dashboard",
     "apps.actividad",
+    "apps.manuales",
 ]
 
 MIDDLEWARE = [
