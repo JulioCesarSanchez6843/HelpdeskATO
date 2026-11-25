@@ -498,7 +498,7 @@
                             </div>
                             <p class="mb-0">{{ c.comentario|linebreaksbr }}</p>
                             <small class="text-muted">
-                                <a href="{% url 'detalle_ticket' c.ticket_id %}">Ticket #{{ c.ticket_id }}</a> · {{ c.ticket.creado_por.nombre }}{% if user.es_superadmin %} · {{ c.ticket.sucursal|default:"Sin sucursal" }}{% endif %}
+                                <a href="{% url 'detalle_ticket' c.ticket_id %}"> · {{ c.ticket.creado_por.nombre }}{% if user.es_superadmin %} · {{ c.ticket.sucursal|default:"Sin sucursal" }}{% endif %}
                             </small>
                         </div>
                     {% empty %}

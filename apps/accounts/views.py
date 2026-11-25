@@ -23,6 +23,7 @@ from django.utils.dateparse import parse_date
 
 from apps.actividad.models import Evento
 from apps.actividad.registro import registrar as registrar_evento
+from apps.manuales.models import Manual
 from apps.tickets import emails as correos
 from apps.tickets.models import ConfiguracionSistema, CorreoPendiente, Notificacion, Ticket
 from apps.tickets.views import _tickets_visibles
@@ -517,6 +518,13 @@ def _inicio_superadmin(ahora):
         "personas": personas,
         "correos": correos,
         "sistema": ConfiguracionSistema.actual(),
+        "manuales_por_revisar": Manual.objects.filter(
+            Q(estado=Manual.Estado.PENDIENTE)
+            | Q(
+                estado=Manual.Estado.APROBADO,
+                eliminacion_solicitada_en__isnull=False,
+            )
+        ).count(),
         "actividad": Evento.objects.select_related("sucursal")[:6],
     }
 

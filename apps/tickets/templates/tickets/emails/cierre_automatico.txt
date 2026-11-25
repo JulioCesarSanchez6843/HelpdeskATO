@@ -1,8 +1,8 @@
 {% autoescape off %}Hola {{ destinatario.nombre }},
 
-El ticket #{{ ticket.pk }} se cerró automáticamente porque pasaron {{ dias }} días en «Por confirmar» sin respuesta del usuario.
+{% if es_personal %}El ticket {{ ticket.folio }}{% else %}Tu ticket{% endif %} se cerró automáticamente porque pasaron {{ dias }} días en «Por confirmar» sin respuesta del usuario.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket {% if es_personal %}{{ ticket.folio }}: {% endif %}{{ ticket.titulo }}
 
 Nota de resolución:
 {{ ticket.nota_resolucion }}

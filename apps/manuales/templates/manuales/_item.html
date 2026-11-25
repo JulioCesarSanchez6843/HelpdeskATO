@@ -1,0 +1,27 @@
+<li>
+    <a href="#m-{{ manual.pk }}" class="mn-item"
+       data-id="{{ manual.pk }}"
+       data-estado="{{ manual.estado }}"
+       data-titulo="{{ manual.titulo }}"
+       data-descripcion="{{ manual.descripcion }}"
+       data-categoria="{{ manual.categoria }}"
+       data-tamano="{{ manual.tamano|filesizeformat }}"
+       data-fecha="{{ manual.actualizado_en|date:'d/m/Y' }}"
+       data-subio="{{ manual.subido_por.nombre|default:'' }}"
+       data-busqueda="{{ manual.titulo }} {{ manual.descripcion }} {{ manual.categoria }}"
+       data-url="{% url 'ver_manual' manual.pk %}?v={{ manual.actualizado_en|date:'U' }}"
+       data-descarga="{% url 'ver_manual' manual.pk %}?descargar=1&amp;v={{ manual.actualizado_en|date:'U' }}"
+       {% if user.es_superadmin %}data-editar="{% url 'editar_manual' manual.pk %}" data-eliminar="{% url 'eliminar_manual' manual.pk %}"{% if manual.estado == 'PENDIENTE' %} data-aprobar="{% url 'aprobar_manual' manual.pk %}"{% endif %}{% if manual.eliminacion_solicitada_en %} data-rechazar="{% url 'rechazar_solicitud' manual.pk %}"{% endif %}{% endif %}
+       {% if user.es_encargado and not user.es_superadmin and manual.subido_por_id == user.pk %}{% if manual.estado == 'PENDIENTE' %}data-cancelar="{% url 'cancelar_manual' manual.pk %}"{% elif not manual.eliminacion_solicitada_en %}data-solicitar="{% url 'solicitar_eliminacion' manual.pk %}"{% endif %}{% endif %}
+       {% if manual.eliminacion_solicitada_en %}{% if user.es_superadmin or manual.eliminacion_solicitada_por_id == user.pk %}data-solicitud="{{ manual.eliminacion_solicitada_por.nombre }} el {{ manual.eliminacion_solicitada_en|date:'d/m/Y' }}" data-motivo="{{ manual.motivo_eliminacion }}"{% endif %}{% endif %}>
+        <i class="bi bi-file-earmark-pdf"></i>
+        <span class="mn-nombre">{{ manual.titulo }}</span>
+        {% if manual.estado == "PENDIENTE" %}
+        <span class="mn-chip-pend">Pendiente</span>
+        {% elif manual.eliminacion_solicitada_en and user.es_superadmin or manual.eliminacion_solicitada_en and manual.eliminacion_solicitada_por_id == user.pk %}
+        <span class="mn-chip-elim">Eliminación solicitada</span>
+        {% else %}
+        <span class="mn-peso">{{ manual.tamano|filesizeformat }}</span>
+        {% endif %}
+    </a>
+</li>

@@ -2,7 +2,7 @@
 
 {% block contenido %}
 <p style="margin:0 0 12px;">Hola {{ destinatario.nombre }},</p>
-<p style="margin:0 0 12px;"><strong>{{ autor.nombre }}</strong> escribió en el ticket #{{ ticket.pk }}:</p>
+<p style="margin:0 0 12px;"><strong>{{ autor.nombre }}</strong> escribió en {% if es_personal %}el ticket {{ ticket.folio }}{% else %}tu ticket{% endif %}:</p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:12px 0;">
 <tr>

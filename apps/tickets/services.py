@@ -74,6 +74,8 @@ def _url_en_proceso(ticket, admin):
 def _contexto(ticket, **extra):
     return {"ticket": ticket, "url_ticket": _url_ticket(ticket), **extra}
 
+def _asunto_por_rol(texto_personal, texto_usuario):
+    return lambda u: texto_personal if u.es_personal else texto_usuario
 
 def _sin(usuarios, actor):
     return [u for u in usuarios if u.pk != actor.pk]
@@ -176,7 +178,7 @@ def registrar_creacion(ticket, autor):
             imagenes_ticket.append((f"imagen{a.pk}", f.read(), a.tipo_contenido))
     mensajes = emails.construir(
         _sin(admins, autor),
-        f"Nuevo ticket #{ticket.pk}: {ticket.titulo}",
+        f"Nuevo ticket {ticket.folio}: {ticket.titulo}",
         "nuevo_ticket_admin",
         contexto,
         imagenes=imagenes_ticket,
@@ -186,7 +188,7 @@ def registrar_creacion(ticket, autor):
     )
     mensajes += emails.construir(
         [ticket.creado_por],
-        f"Recibimos tu ticket #{ticket.pk}",
+        f"Recibimos tu ticket: {ticket.titulo}",
         "ticket_recibido",
         contexto,
     )
@@ -280,13 +282,13 @@ def registrar_gestion(ticket, actor, antes, motivo=""):
             _notificar(
                 [ticket.creado_por],
                 Notificacion.Tipo.POR_CONFIRMAR,
-                f"Tu ticket #{ticket.pk} fue resuelto. Confirma si quedó solucionado.",
+                f"Tu ticket «{ticket.titulo}» fue resuelto. Confirma si quedó solucionado.",
                 ticket,
                 actor,
             )
             mensajes = emails.construir(
                 destinatarios,
-                f"Ticket #{ticket.pk} resuelto: confirma el cierre",
+                f"Resuelto, confirma el cierre: {ticket.titulo}",
                 "por_confirmar",
                 _contexto(ticket, url_confirmacion=_url_confirmacion(ticket)),
             )
@@ -294,13 +296,13 @@ def registrar_gestion(ticket, actor, antes, motivo=""):
             _notificar(
                 [ticket.creado_por],
                 Notificacion.Tipo.CAMBIO_ESTADO,
-                f"Tu ticket #{ticket.pk} ahora está «{ticket.get_estado_display()}».",
+                f"Tu ticket «{ticket.titulo}» ahora está «{ticket.get_estado_display()}».",
                 ticket,
                 actor,
             )
             mensajes = emails.construir(
                 destinatarios,
-                f"Ticket #{ticket.pk}: ahora está «{ticket.get_estado_display()}»",
+                f"{ticket.titulo}: ahora está «{ticket.get_estado_display()}»",
                 "cambio_estado",
                 _contexto(ticket, estado_anterior=anterior),
             )
@@ -457,14 +459,14 @@ def forzar_cierre(ticket, admin, justificacion):
     _notificar(
         [ticket.creado_por],
         Notificacion.Tipo.TICKET_CERRADO,
-        f"Tu ticket #{ticket.pk} fue cerrado por el administrador.",
+        f"Tu ticket «{ticket.titulo}» fue cerrado por el administrador.",
         ticket,
         admin,
     )
     emails.enviar_tras_commit(
         emails.construir(
             _sin([ticket.creado_por], admin),
-            f"Tu ticket #{ticket.pk} fue cerrado",
+            f"Tu ticket fue cerrado: {ticket.titulo}",
             "cierre_forzado",
             _contexto(ticket),
         )
@@ -510,7 +512,7 @@ def cerrar_automaticamente(ticket, dias):
                 ticket=ticket,
                 tipo=Notificacion.Tipo.TICKET_CERRADO,
                 mensaje=(
-                    f"El ticket #{ticket.pk} se cerró automáticamente "
+                    f"El ticket «{ticket.titulo}» se cerró automáticamente "
                     "por falta de confirmación."
                 ),
             )
@@ -520,7 +522,10 @@ def cerrar_automaticamente(ticket, dias):
     emails.enviar_tras_commit(
         emails.construir(
             list(destinatarios.values()),
-            f"Ticket #{ticket.pk} cerrado automáticamente",
+            _asunto_por_rol(
+                f"Ticket {ticket.folio} cerrado automáticamente",
+                f"Tu ticket se cerró automáticamente: {ticket.titulo}",
+            ),
             "cierre_automatico",
             _contexto(ticket, dias=dias),
             contexto_usuario=lambda destinatario: {"destinatario": destinatario},
@@ -573,7 +578,7 @@ def enviar_recordatorio_cierre(ticket, cierra_el):
             ticket=ticket,
             tipo=Notificacion.Tipo.POR_CONFIRMAR,
             mensaje=(
-                f"Tu ticket #{ticket.pk} se cerrará automáticamente el {fecha} "
+                f"Tu ticket «{ticket.titulo}» se cerrará automáticamente el {fecha} "
                 "si no confirmas que quedó resuelto."
             ),
         )
@@ -581,7 +586,7 @@ def enviar_recordatorio_cierre(ticket, cierra_el):
     emails.enviar_tras_commit(
         emails.construir(
             [ticket.creado_por],
-            f"Ticket #{ticket.pk}: confirma antes de que se cierre",
+            f"Confirma antes de que se cierre: {ticket.titulo}",
             "recordatorio_cierre",
             _contexto(
                 ticket,
@@ -696,7 +701,7 @@ def agregar_comentario(ticket, autor, contenido, interno=False, archivos=()):
     _notificar(
         destinatarios,
         Notificacion.Tipo.COMENTARIO,
-        f"{autor.nombre} escribió en el ticket #{ticket.pk}.",
+        f"{autor.nombre} escribió en el ticket «{ticket.titulo}».",
         ticket,
         autor,
     )
@@ -705,7 +710,10 @@ def agregar_comentario(ticket, autor, contenido, interno=False, archivos=()):
         emails.enviar_tras_commit(
             emails.construir(
                 _sin(destinatarios, autor),
-                f"Nuevo mensaje en el ticket #{ticket.pk}",
+                _asunto_por_rol(
+                    f"Nuevo mensaje en el ticket {ticket.folio}",
+                    f"Nuevo mensaje: {ticket.titulo}",
+                ),
                 "nuevo_comentario",
                 _contexto(
                     ticket,
@@ -767,14 +775,17 @@ def reabrir_ticket(ticket, actor, motivo):
     _notificar(
         destinatarios,
         Notificacion.Tipo.CAMBIO_ESTADO,
-        f"{actor.nombre} reabrió el ticket #{ticket.pk}.",
+        f"{actor.nombre} reabrió el ticket «{ticket.titulo}».",
         ticket,
         actor,
     )
     emails.enviar_tras_commit(
         emails.construir(
             _sin(destinatarios, actor),
-            f"Ticket #{ticket.pk} reabierto",
+            _asunto_por_rol(
+                f"Ticket {ticket.folio} reabierto",
+                f"Tu ticket se reabrió: {ticket.titulo}",
+            ),
             "ticket_reabierto",
             _contexto(ticket, motivo=motivo, reabierto_por=actor),
         )

@@ -75,7 +75,11 @@
                     {% if user.es_superadmin %}
                     <li><a class="dropdown-item" href="{% url 'configuracion_sistema' %}"><i class="bi bi-sliders me-2"></i>Parámetros del sistema</a></li>
                     {% endif %}
+                    {% if user.es_personal %}
+                    <li><a class="dropdown-item" href="{% url 'lista_manuales' %}"><i class="bi bi-journal-bookmark me-2"></i>Manuales técnicos</a></li>
+                    {% endif %}
                     <li><a class="dropdown-item" href="{% url 'ayuda' %}"><i class="bi bi-question-circle me-2"></i>Ayuda</a></li>
+                    <li><hr class="dropdown-divider"></li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form method="post" action="{% url 'logout' %}">

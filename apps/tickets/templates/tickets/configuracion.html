@@ -89,7 +89,7 @@
                             {% for fila in pendientes %}
                             <tr>
                                 <td>
-                                    <a href="{% url 'detalle_ticket' fila.ticket.pk %}">#{{ fila.ticket.pk }}</a>
+                                    <a href="{% url 'detalle_ticket' fila.ticket.pk %}">{{ fila.ticket.folio }}</a>
                                     <span class="text-muted small">{{ fila.ticket.titulo|truncatechars:30 }}</span>
                                 </td>
                                 <td class="small">{{ fila.ticket.creado_por.nombre }}</td>

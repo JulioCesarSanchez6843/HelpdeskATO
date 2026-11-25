@@ -2,7 +2,7 @@
 
 Recibimos tu ticket y ya lo tiene el equipo de soporte.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket: {{ ticket.titulo }}
 
 Te avisaremos por correo cuando cambie de estado. Puedes verlo aquí:
 {{ url_ticket }}

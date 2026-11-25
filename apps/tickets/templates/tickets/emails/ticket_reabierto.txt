@@ -1,6 +1,6 @@
 {% autoescape off %}{{ reabierto_por.nombre }} reabrió el ticket.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket {% if es_personal %}{{ ticket.folio }}: {% endif %}{{ ticket.titulo }}
 
 Motivo:
 {{ motivo }}

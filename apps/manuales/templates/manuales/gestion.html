@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .mg { max-width: 1400px; margin: 0 auto 2.5rem; }
+    .mg-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1.2rem; margin-bottom: 1rem; }
+    .mg-barra h1 { margin: 0; font-size: 1.5rem; font-weight: 700; }
+    .mg-barra p { margin: .15rem 0 0; font-size: .9rem; color: #6b7280; }
+
+    .mg-seccion { background: #fff; border: 1px solid #e5e7eb; border-radius: .9rem; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); margin-bottom: 1.25rem; overflow: hidden; }
+    .mg-seccion-cab { display: flex; align-items: center; gap: .6rem; padding: .85rem 1.1rem; border-bottom: 1px solid #eef0f3; font-weight: 700; }
+    .mg-seccion-cab small { font-weight: 400; color: #6b7280; }
+    .mg-fila { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; padding: .9rem 1.1rem; border-bottom: 1px solid #f1f3f5; }
+    .mg-fila:last-child { border-bottom: 0; }
+    .mg-datos { flex: 1 1 320px; min-width: 0; }
+    .mg-titulo { font-weight: 600; overflow-wrap: anywhere; }
+    .mg-meta { font-size: .8rem; color: #6b7280; }
+    .mg-motivo { margin-top: .4rem; padding: .45rem .7rem; background: #fff8e1; border-left: 3px solid #ffc107; border-radius: .4rem; font-size: .88rem; overflow-wrap: anywhere; }
+    .mg-acciones { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .mg-vacio { padding: 1.3rem 1.1rem; color: #6b7280; font-size: .92rem; }
+
+    .mg-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .mg-panel { background: #fff; border: 1px solid #e5e7eb; border-radius: .9rem; box-shadow: 0 1px 3px rgba(16, 24, 40, .06); }
+    .mg-lado { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; padding: .5rem .6rem 1rem; scrollbar-width: thin; }
+    .mg-cat { display: flex; align-items: center; gap: .45rem; margin: .8rem .4rem .35rem; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #92400e; }
+    .mg-cat-elim { color: #b42318; }
+    .mg-indice { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .2rem; }
+    .mg-item { display: flex; align-items: center; gap: .65rem; padding: .55rem .65rem; border-radius: .6rem; border: 1px solid transparent; color: #111827; text-decoration: none; }
+    .mg-item:hover { background: #fffbeb; color: #111827; }
+    .mg-item.activo { background: #fef3c7; border-color: #fcd34d; }
+    .mg-item > i { font-size: 1.4rem; color: #dc2626; flex: 0 0 auto; }
+    .mg-item-texto { display: flex; flex-direction: column; min-width: 0; }
+    .mg-item-titulo { font-weight: 600; font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mg-item-texto small { color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mg-visor { display: flex; flex-direction: column; min-height: 640px; overflow: hidden; border-top: 4px solid #f59e0b; }
+    .mg-visor-vacio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; flex: 1 1 auto; min-height: 400px; color: #6b7280; text-align: center; padding: 2rem; }
+    .mg-visor-vacio i { font-size: 2.6rem; color: #f59e0b; }
+    .mg-lector { display: flex; flex-direction: column; flex: 1 1 auto; }
+    .mg-lector[hidden], .mg-visor-vacio[hidden] { display: none; }
+    .mg-cabecera { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .8rem 1.2rem; padding: 1rem 1.25rem; border-bottom: 1px solid #eef0f3; background: linear-gradient(135deg, #fffbeb, #ffffff); }
+    .mg-cab-texto { flex: 1 1 280px; min-width: 0; }
+    .mg-cab-texto h2 { margin: .25rem 0 0; font-size: 1.25rem; font-weight: 700; color: #111827; overflow-wrap: anywhere; }
+    .mg-chip { display: inline-block; padding: .15rem .6rem; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+    .mg-chip-pend { background: #fef3c7; color: #92400e; }
+    .mg-chip-elim { background: #fee4e2; color: #b42318; }
+    .mg-aviso { margin: 0; padding: .6rem 1.25rem; background: #fff8e1; border-bottom: 1px solid #fde68a; font-size: .9rem; overflow-wrap: anywhere; }
+    .mg-aviso[hidden] { display: none; }
+    .mg-marco { flex: 1 1 auto; height: calc(100vh - 17rem); min-height: 520px; background: #f3f4f6; }
+    .mg-marco iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+    @media (max-width: 991.98px) {
+        .mg-grid { grid-template-columns: minmax(0, 1fr); }
+        .mg-lado { position: static; max-height: 320px; }
+        .mg-visor { min-height: 0; }
+        .mg-marco { height: 70vh; min-height: 440px; }
+    }
+</style>
+
+<div class="mg">
+    <div class="mg-barra">
+        <div>
+            <h1>Manuales técnicos</h1>
+            <p>{% if user.es_superadmin %}Revisa el PDF y decide qué se publica y qué se elimina.{% else %}Seguimiento de los manuales que has subido.{% endif %}</p>
+        </div>
+        <a href="{% url 'nuevo_manual' %}" class="btn btn-primary"><i class="bi bi-cloud-arrow-up me-1"></i>Subir manual</a>
+    </div>
+
+    {% include "manuales/_pestanas.html" with pestana="gestion" %}
+
+    {% if user.es_superadmin %}
+
+    {% if por_aprobar or solicitudes %}
+    <div class="mg-grid" id="mgRaiz">
+        <aside class="mg-panel mg-lado">
+            {% if por_aprobar %}
+            <p class="mg-cat"><i class="bi bi-hourglass-split"></i>Por aprobar <span class="badge text-bg-warning ms-auto">{{ por_aprobar|length }}</span></p>
+            <ul class="mg-indice">
+                {% for manual in por_aprobar %}
+                <li>
+                    <a href="#r-{{ manual.pk }}" class="mg-item"
+                       data-id="{{ manual.pk }}"
+                       data-tipo="aprobar"
+                       data-titulo="{{ manual.titulo }}"
+                       data-meta="{{ manual.categoria }} · {{ manual.tamano|filesizeformat }} · Subido por {{ manual.subido_por.nombre|default:'un usuario eliminado' }} el {{ manual.subido_en|date:'d/m/Y H:i' }}"
+                       data-motivo=""
+                       data-url="{% url 'ver_manual' manual.pk %}?v={{ manual.actualizado_en|date:'U' }}"
+                       data-aprobar="{% url 'aprobar_manual' manual.pk %}"
+                       data-eliminar="{% url 'eliminar_manual' manual.pk %}">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <span class="mg-item-texto">
+                            <span class="mg-item-titulo">{{ manual.titulo }}</span>
+                            <small>{{ manual.categoria }} · {{ manual.subido_por.nombre|default:"—" }}</small>
+                        </span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            {% if solicitudes %}
+            <p class="mg-cat mg-cat-elim"><i class="bi bi-trash3"></i>Solicitudes de eliminación <span class="badge text-bg-danger ms-auto">{{ solicitudes|length }}</span></p>
+            <ul class="mg-indice">
+                {% for manual in solicitudes %}
+                <li>
+                    <a href="#r-{{ manual.pk }}" class="mg-item"
+                       data-id="{{ manual.pk }}"
+                       data-tipo="eliminar"
+                       data-titulo="{{ manual.titulo }}"
+                       data-meta="{{ manual.categoria }} · {{ manual.tamano|filesizeformat }} · Solicitada por {{ manual.eliminacion_solicitada_por.nombre|default:'un usuario eliminado' }} el {{ manual.eliminacion_solicitada_en|date:'d/m/Y H:i' }}"
+                       data-motivo="{{ manual.motivo_eliminacion|default:'Sin motivo (solicitud anterior).' }}"
+                       data-url="{% url 'ver_manual' manual.pk %}?v={{ manual.actualizado_en|date:'U' }}"
+                       data-conservar="{% url 'rechazar_solicitud' manual.pk %}"
+                       data-eliminar="{% url 'eliminar_manual' manual.pk %}">
+                        <i class="bi bi-file-earmark-pdf"></i>
+                        <span class="mg-item-texto">
+                            <span class="mg-item-titulo">{{ manual.titulo }}</span>
+                            <small>{{ manual.categoria }} · {{ manual.eliminacion_solicitada_por.nombre|default:"—" }}</small>
+                        </span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </aside>
+
+        <article class="mg-panel mg-visor">
+            <div class="mg-visor-vacio" id="mgVacio">
+                <i class="bi bi-eye"></i>
+                <h5 class="mb-0">Elige un manual de la lista</h5>
+                <p class="mb-0">Verás el PDF aquí antes de decidir.</p>
+            </div>
+
+            <div class="mg-lector" id="mgLector" hidden>
+                <div class="mg-cabecera">
+                    <div class="mg-cab-texto">
+                        <span class="mg-chip" id="mgTipo"></span>
+                        <h2 id="mgTitulo"></h2>
+                        <p class="mg-meta mb-0 mt-1" id="mgMeta"></p>
+                    </div>
+                    <div class="mg-acciones">
+                        <form id="mgAprobar" method="post" hidden data-confirmar-titulo="Aprobar manual" data-confirmar-boton="Aprobar">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-lg me-1"></i>Aprobar</button>
+                        </form>
+                        <form id="mgRechazar" method="post" hidden data-confirmar-titulo="Rechazar manual" data-confirmar-boton="Rechazar y eliminar" data-confirmar-peligro>
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'gestion_manuales' %}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-lg me-1"></i>Rechazar</button>
+                        </form>
+                        <form id="mgConservar" method="post" hidden data-confirmar-titulo="Conservar manual" data-confirmar-boton="Conservar">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-shield-check me-1"></i>Conservar</button>
+                        </form>
+                        <form id="mgEliminar" method="post" hidden data-confirmar-titulo="Eliminar manual" data-confirmar-boton="Eliminar" data-confirmar-peligro>
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{% url 'gestion_manuales' %}">
+                            <button type="submit" class="btn btn-sm btn-danger"><i class="bi bi-trash me-1"></i>Eliminar</button>
+                        </form>
+                        <a id="mgAbrir" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Abrir en una pestaña nueva"><i class="bi bi-box-arrow-up-right"></i></a>
+                    </div>
+                </div>
+                <p class="mg-aviso" id="mgAviso" hidden></p>
+                <div class="mg-marco">
+                    <iframe id="mgMarco" title="Vista previa del manual"></iframe>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <script>
+        (function () {
+            var raiz = document.getElementById("mgRaiz");
+            var items = Array.prototype.slice.call(raiz.querySelectorAll(".mg-item"));
+            var vacio = document.getElementById("mgVacio");
+            var lector = document.getElementById("mgLector");
+            var marco = document.getElementById("mgMarco");
+            var tipo = document.getElementById("mgTipo");
+            var titulo = document.getElementById("mgTitulo");
+            var meta = document.getElementById("mgMeta");
+            var aviso = document.getElementById("mgAviso");
+            var abrir = document.getElementById("mgAbrir");
+            var formAprobar = document.getElementById("mgAprobar");
+            var formRechazar = document.getElementById("mgRechazar");
+            var formConservar = document.getElementById("mgConservar");
+            var formEliminar = document.getElementById("mgEliminar");
+            var actual = null;
+
+            function mostrar(item, actualizarHash) {
+                if (!item || item === actual) return;
+                actual = item;
+                items.forEach(function (i) {
+                    i.classList.toggle("activo", i === item);
+                });
+
+                var nombre = item.dataset.titulo;
+                var esSolicitud = item.dataset.tipo === "eliminar";
+
+                vacio.hidden = true;
+                lector.hidden = false;
+
+                tipo.textContent = esSolicitud ? "Eliminación solicitada" : "Por aprobar";
+                tipo.className = "mg-chip " + (esSolicitud ? "mg-chip-elim" : "mg-chip-pend");
+                titulo.textContent = nombre;
+                meta.textContent = item.dataset.meta;
+
+                if (esSolicitud) {
+                    aviso.textContent = "Motivo: " + item.dataset.motivo;
+                    aviso.hidden = false;
+                } else {
+                    aviso.textContent = "";
+                    aviso.hidden = true;
+                }
+
+                formAprobar.hidden = esSolicitud;
+                formRechazar.hidden = esSolicitud;
+                formConservar.hidden = !esSolicitud;
+                formEliminar.hidden = !esSolicitud;
+
+                if (esSolicitud) {
+                    formConservar.action = item.dataset.conservar;
+                    formConservar.setAttribute("data-confirmar", "¿Rechazar la solicitud y conservar «" + nombre + "»?");
+                    formEliminar.action = item.dataset.eliminar;
+                    formEliminar.setAttribute("data-confirmar", "¿Eliminar «" + nombre + "»? Esta acción no se puede deshacer.");
+                } else {
+                    formAprobar.action = item.dataset.aprobar;
+                    formAprobar.setAttribute("data-confirmar", "¿Aprobar «" + nombre + "» y hacerlo visible para todo el equipo?");
+                    formRechazar.action = item.dataset.eliminar;
+                    formRechazar.setAttribute("data-confirmar", "¿Rechazar «" + nombre + "»? Se eliminará el PDF.");
+                }
+
+                abrir.href = item.dataset.url;
+                marco.src = item.dataset.url + "#navpanes=0";
+
+                if (actualizarHash) {
+                    window.history.replaceState(null, "", "#r-" + item.dataset.id);
+                }
+            }
+
+            items.forEach(function (item) {
+                item.addEventListener("click", function (evento) {
+                    evento.preventDefault();
+                    mostrar(item, true);
+                    if (window.innerWidth < 992) {
+                        lector.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                });
+            });
+
+            var inicial = null;
+            var coincidencia = /^#r-(\d+)$/.exec(window.location.hash);
+            if (coincidencia) {
+                inicial = items.filter(function (i) {
+                    return i.dataset.id === coincidencia[1];
+                })[0];
+            }
+            mostrar(inicial || items[0], false);
+        })();
+    </script>
+    {% else %}
+    <section class="mg-seccion">
+        <div class="mg-vacio text-center py-5">
+            <i class="bi bi-check2-circle fs-1 text-success d-block mb-2"></i>
+            <h5 class="mb-1">Todo al día</h5>
+            <p class="mb-0">No hay manuales por aprobar ni solicitudes de eliminación.</p>
+        </div>
+    </section>
+    {% endif %}
+
+    {% else %}
+
+    <section class="mg-seccion">
+        <div class="mg-seccion-cab">
+            <i class="bi bi-hourglass-split text-warning"></i>En revisión
+            <span class="badge text-bg-warning">{{ en_revision|length }}</span>
+            <small>Esperan la aprobación de un super administrador. Puedes cancelarlos mientras tanto.</small>
+        </div>
+        {% for manual in en_revision %}
+        <div class="mg-fila">
+            <i class="bi bi-file-earmark-pdf fs-3 text-danger"></i>
+            <div class="mg-datos">
+                <div class="mg-titulo">{{ manual.titulo }}</div>
+                <div class="mg-meta">{{ manual.categoria }} · {{ manual.tamano|filesizeformat }} · Enviado el {{ manual.subido_en|date:"d/m/Y H:i" }}</div>
+            </div>
+            <div class="mg-acciones">
+                <a href="{% url 'ver_manual' manual.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye me-1"></i>Ver PDF</a>
+                <form method="post" action="{% url 'cancelar_manual' manual.pk %}" data-confirmar-titulo="Cancelar manual" data-confirmar-boton="Cancelar subida" data-confirmar-peligro data-confirmar="¿Cancelar «{{ manual.titulo }}»? Se eliminará el PDF que subiste.">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle me-1"></i>Cancelar subida</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="mg-vacio">No tienes manuales en revisión.</div>
+        {% endfor %}
+    </section>
+
+    <section class="mg-seccion">
+        <div class="mg-seccion-cab">
+            <i class="bi bi-check-circle text-success"></i>Publicados
+            <span class="badge text-bg-success">{{ publicados|length }}</span>
+        </div>
+        {% for manual in publicados %}
+        <div class="mg-fila">
+            <i class="bi bi-file-earmark-pdf fs-3 text-danger"></i>
+            <div class="mg-datos">
+                <div class="mg-titulo">{{ manual.titulo }}</div>
+                <div class="mg-meta">{{ manual.categoria }} · {{ manual.tamano|filesizeformat }} · Aprobado el {{ manual.aprobado_en|date:"d/m/Y" }}</div>
+            </div>
+            <div class="mg-acciones">
+                <a href="{% url 'lista_manuales' %}#m-{{ manual.pk }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye me-1"></i>Abrir en el visor</a>
+                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEliminacion" data-accion="{% url 'solicitar_eliminacion' manual.pk %}" data-titulo="{{ manual.titulo }}"><i class="bi bi-send me-1"></i>Solicitar eliminación</button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="mg-vacio">Aún no tienes manuales publicados.</div>
+        {% endfor %}
+    </section>
+
+    {% if con_solicitud %}
+    <section class="mg-seccion">
+        <div class="mg-seccion-cab">
+            <i class="bi bi-trash3 text-danger"></i>Eliminación solicitada
+            <span class="badge text-bg-danger">{{ con_solicitud|length }}</span>
+            <small>Esperan la decisión de un super administrador. Siguen visibles mientras tanto.</small>
+        </div>
+        {% for manual in con_solicitud %}
+        <div class="mg-fila">
+            <i class="bi bi-file-earmark-pdf fs-3 text-danger"></i>
+            <div class="mg-datos">
+                <div class="mg-titulo">{{ manual.titulo }}</div>
+                <div class="mg-meta">{{ manual.categoria }} · Solicitada el {{ manual.eliminacion_solicitada_en|date:"d/m/Y H:i" }}</div>
+                <div class="mg-motivo"><strong>Tu motivo:</strong> {{ manual.motivo_eliminacion|default:"Sin motivo." }}</div>
+            </div>
+            <div class="mg-acciones">
+                <a href="{% url 'lista_manuales' %}#m-{{ manual.pk }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye me-1"></i>Abrir en el visor</a>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <div class="modal fade" id="modalEliminacion" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" id="formEliminacion" class="modal-content">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">Solicitar eliminación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Manual: <strong id="modalEliminacionTitulo"></strong></p>
+                    <label for="modalEliminacionMotivo" class="form-label small mb-1">Motivo de la eliminación (obligatorio)</label>
+                    <textarea id="modalEliminacionMotivo" name="motivo" rows="3" maxlength="300" required class="form-control"></textarea>
+                    <div class="form-text">El manual seguirá visible hasta que un super administrador decida.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Enviar solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var modal = document.getElementById("modalEliminacion");
+            var formulario = document.getElementById("formEliminacion");
+            var titulo = document.getElementById("modalEliminacionTitulo");
+            var motivo = document.getElementById("modalEliminacionMotivo");
+            modal.addEventListener("show.bs.modal", function (evento) {
+                var boton = evento.relatedTarget;
+                formulario.action = boton.getAttribute("data-accion");
+                titulo.textContent = boton.getAttribute("data-titulo");
+                motivo.value = "";
+            });
+            modal.addEventListener("shown.bs.modal", function () {
+                motivo.focus();
+            });
+        })();
+    </script>
+
+    {% endif %}
+</div>
+{% endblock %}

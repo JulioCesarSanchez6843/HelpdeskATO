@@ -4,6 +4,7 @@
 {% block content %}
 
 {% url 'lista_tickets' as url_tickets %}
+{% url 'gestion_manuales' as url_manuales %}
 
 <style>
     .inicio { max-width: 960px; margin: 0 auto 2rem; }
@@ -115,6 +116,7 @@
         {% include "accounts/_tarjeta_dato.html" with url=url_tickets filtro="?estado=ABIERTO" etiqueta="Sin asignar" valor=conteos.sin_asignar alerta=conteos.sin_asignar tono="warning" %}
         {% include "accounts/_tarjeta_dato.html" with url=url_tickets etiqueta="SLA vencido" valor=conteos.vencidos alerta=conteos.vencidos tono="danger" %}
         {% include "accounts/_tarjeta_dato.html" with etiqueta="Correos con error" valor=correos.errores alerta=correos.errores tono="danger" %}
+        {% include "accounts/_tarjeta_dato.html" with url=url_manuales etiqueta="Manuales por revisar" valor=manuales_por_revisar alerta=manuales_por_revisar tono="warning" %}
         {% endif %}
     </section>
 

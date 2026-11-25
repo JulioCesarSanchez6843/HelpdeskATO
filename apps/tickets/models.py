@@ -115,8 +115,12 @@ class Ticket(models.Model):
             models.Index(fields=["creado_en"]),
         ]
 
+    @property
+    def folio(self):
+        return f"TK-{self.pk:05d}"
+
     def __str__(self):
-        return f"Ticket #{self.pk} - {self.titulo}"
+        return f"Ticket {self.folio} - {self.titulo}"
 
     def recalcular_sla(self):
         self.sla_aviso_en = None

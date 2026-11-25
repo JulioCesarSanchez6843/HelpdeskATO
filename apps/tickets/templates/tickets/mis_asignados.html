@@ -41,7 +41,7 @@
             <a href="{% url 'detalle_ticket' ticket.pk %}" class="card shadow-sm text-decoration-none text-body">
                 <div class="card-body p-2">
                     <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                        <code>#{{ ticket.pk }}</code>
+                        <span class="fw-semibold text-nowrap">{{ ticket.folio }}</span>
                         {% include "tickets/_prioridad_badge.html" %}
                     </div>
                     <div class="fw-semibold small mb-2">{{ ticket.titulo|truncatechars:70 }}</div>

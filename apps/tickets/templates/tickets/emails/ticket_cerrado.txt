@@ -2,7 +2,7 @@
 
 Gracias por confirmar. Tu ticket quedó cerrado.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket: {{ ticket.titulo }}
 
 Si el problema vuelve a aparecer, crea un ticket nuevo desde:
 {{ url_ticket }}

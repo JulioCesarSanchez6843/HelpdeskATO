@@ -1,4 +1,4 @@
-{% autoescape off %}{{ becario.nombre }} puso en espera de materiales el ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+{% autoescape off %}{{ becario.nombre }} puso en espera de materiales el ticket {{ ticket.folio }}: {{ ticket.titulo }}
 
 Motivo: {{ motivo }}
 

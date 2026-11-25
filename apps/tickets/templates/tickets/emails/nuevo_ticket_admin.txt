@@ -1,6 +1,6 @@
 {% autoescape off %}Se abrió un nuevo ticket.
 
-Ticket #{{ ticket.pk }}: {{ ticket.titulo }}
+Ticket {{ ticket.folio }}: {{ ticket.titulo }}
 Creado por: {{ ticket.creado_por.nombre }} ({{ ticket.creado_por.correo }})
 Área: {{ ticket.area|default:"—" }}
 
