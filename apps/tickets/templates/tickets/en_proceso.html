@@ -33,7 +33,7 @@
         <div class="card-body">
           <h4 class="card-title">Este ticket ya fue atendido</h4>
           <p class="mb-3">
-            El ticket #{{ ticket.pk }} ya está en «{{ ticket.get_estado_display }}».
+            El ticket {{ ticket.folio }} ya está en «{{ ticket.get_estado_display }}».
           </p>
           <a href="{% url 'detalle_ticket' ticket.pk %}" class="btn btn-primary">Abrir el ticket</a>
         </div>
@@ -44,7 +44,7 @@
       <div class="card shadow-sm">
         <div class="card-body">
           <h4 class="card-title">¿Pasar el ticket a «En proceso»?</h4>
-          <p class="text-muted mb-3">Ticket #{{ ticket.pk }} — {{ ticket.titulo }}</p>
+          <p class="text-muted mb-3">Ticket {{ ticket.folio }} — {{ ticket.titulo }}</p>
 
           <ul class="list-unstyled mb-3">
             <li><strong>Creado por:</strong> {{ ticket.creado_por.nombre }}</li>

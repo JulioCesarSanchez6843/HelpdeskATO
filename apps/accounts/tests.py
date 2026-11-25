@@ -1,9 +1,16 @@
+import shutil
+import tempfile
+from io import BytesIO
+
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from apps.catalog.models import Area, Sucursal
-from .models import Usuario
+from .models import FotoPerfil, Usuario
 
 PASSWORD = "pw-segura-123"
 
@@ -186,3 +193,89 @@ class CorreoObligatorioTests(TestCase):
     def test_la_base_rechaza_correos_que_solo_cambian_en_mayusculas(self):
         with self.assertRaises(IntegrityError), transaction.atomic():
             Usuario.objects.create(correo="ADMIN@T.COM", nombre="X", area=self.area)
+
+
+def imagen_prueba(nombre="foto.png", tamano=(400, 300), formato="PNG", color="blue"):
+    buffer = BytesIO()
+    Image.new("RGB", tamano, color).save(buffer, format=formato)
+    return SimpleUploadedFile(nombre, buffer.getvalue(), content_type=f"image/{formato.lower()}")
+
+
+class FotoPerfilTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._carpeta_media = tempfile.mkdtemp()
+        cls._cambio_media = override_settings(MEDIA_ROOT=cls._carpeta_media)
+        cls._cambio_media.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._cambio_media.disable()
+        shutil.rmtree(cls._carpeta_media, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.area = Area.objects.create(nombre="Ventas")
+        self.sucursal = Sucursal.objects.create(nombre="Central")
+        self.user = Usuario.objects.create_user(
+            "ana@t.com", "Ana", PASSWORD, area=self.area, sucursal=self.sucursal
+        )
+        self.client.force_login(self.user)
+
+    def subir(self, archivo):
+        return self.client.post(reverse("mi_perfil"), {"foto": archivo})
+
+    def test_subir_foto_la_guarda_cuadrada_en_disco(self):
+        r = self.subir(imagen_prueba())
+        self.assertRedirects(r, reverse("mi_perfil"))
+        foto = FotoPerfil.objects.get(usuario=self.user)
+        self.assertTrue(foto.archivo.name.startswith(f"fotos/{self.user.pk}/"))
+        with default_storage.open(foto.archivo.name) as f:
+            self.assertEqual(Image.open(f).size, (256, 256))
+
+    def test_un_archivo_que_no_es_imagen_se_rechaza(self):
+        falso = SimpleUploadedFile("foto.jpg", b"esto no es una imagen", content_type="image/jpeg")
+        r = self.subir(falso)
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("foto", r.context["form"].errors)
+        self.assertFalse(FotoPerfil.objects.exists())
+
+    def test_una_imagen_de_mas_de_5_mb_se_rechaza(self):
+        r = self.subir(imagen_prueba("grande.bmp", (1800, 1800), "BMP"))
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("5 MB", r.context["form"].errors["foto"][0])
+        self.assertFalse(FotoPerfil.objects.exists())
+
+    def test_subir_otra_foto_reemplaza_y_borra_la_anterior(self):
+        self.subir(imagen_prueba())
+        anterior = FotoPerfil.objects.get(usuario=self.user).archivo.name
+        self.subir(imagen_prueba(color="green"))
+        self.assertEqual(FotoPerfil.objects.filter(usuario=self.user).count(), 1)
+        nueva = FotoPerfil.objects.get(usuario=self.user).archivo.name
+        self.assertNotEqual(anterior, nueva)
+        self.assertTrue(default_storage.exists(nueva))
+        self.assertFalse(default_storage.exists(anterior))
+
+    def test_eliminar_borra_el_registro_y_el_archivo(self):
+        self.subir(imagen_prueba())
+        ruta = FotoPerfil.objects.get(usuario=self.user).archivo.name
+        r = self.client.post(reverse("mi_perfil"), {"accion": "eliminar"})
+        self.assertRedirects(r, reverse("mi_perfil"))
+        self.assertFalse(FotoPerfil.objects.filter(usuario=self.user).exists())
+        self.assertFalse(default_storage.exists(ruta))
+
+    def test_la_vista_de_la_foto_devuelve_jpeg_o_404(self):
+        url = reverse("foto_usuario", args=[self.user.pk])
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.subir(imagen_prueba())
+        r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "image/jpeg")
+        b"".join(r.streaming_content)
+
+    def test_la_foto_exige_sesion(self):
+        self.subir(imagen_prueba())
+        self.client.logout()
+        r = self.client.get(reverse("foto_usuario", args=[self.user.pk]))
+        self.assertEqual(r.status_code, 302)

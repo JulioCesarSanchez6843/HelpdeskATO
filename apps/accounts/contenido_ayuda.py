@@ -323,7 +323,7 @@ def _encargado():
                 "En Usuarios ves y administras a las personas de tu sucursal.",
                 "Puedes crear becarios y usuarios.",
                 "Puedes editar sus datos, activarlos o desactivarlos.",
-                "Puedes enviarles un correo para que restablezcan su contraseña.",
+                "Puedes ver la contraseña de un usuario con el botón del ojo y cambiarla solo si te la piden.",
                 "Para quitar a alguien, desactívalo en lugar de borrarlo, así se conserva su historial.",
             ),
             _seccion(
@@ -392,7 +392,7 @@ def _superadmin(usuario):
             "bi-people",
             "Usuarios",
             "Puedes crear encargados, becarios y usuarios en cualquier sucursal.",
-            "Puedes editarlos, activarlos o desactivarlos y enviarles un correo para restablecer su contraseña.",
+            "Puedes editarlos, activarlos o desactivarlos, ver su contraseña con el botón del ojo y cambiarla solo si te la piden.",
             "Para quitar a alguien, desactívalo en lugar de borrarlo, así se conserva su historial.",
         ),
         _seccion(

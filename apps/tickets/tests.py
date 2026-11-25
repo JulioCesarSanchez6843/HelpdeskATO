@@ -1,5 +1,7 @@
 import json
 import re
+import shutil
+import tempfile
 from io import BytesIO, StringIO
 from unittest import mock
 
@@ -30,6 +32,19 @@ def imagen(nombre="foto.jpg", tamano=(40, 30), formato="JPEG", color="red"):
 
 
 class BaseTicketsTest(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._carpeta_media = tempfile.mkdtemp()
+        cls._cambio_media = override_settings(MEDIA_ROOT=cls._carpeta_media)
+        cls._cambio_media.enable()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._cambio_media.disable()
+        shutil.rmtree(cls._carpeta_media, ignore_errors=True)
+        super().tearDownClass()
+
     def setUp(self):
         self.area = Area.objects.create(nombre="Contabilidad")
         self.categoria = Categoria.objects.create(nombre="Red")
@@ -184,8 +199,10 @@ class AdjuntosTests(BaseTicketsTest):
         self.assertEqual(adjunto.ticket, Ticket.objects.get())
         self.assertEqual(adjunto.subido_por, self.u1)
         self.assertEqual(adjunto.tipo_contenido, "image/jpeg")
-        self.assertTrue(bytes(adjunto.contenido).startswith(b"\xff\xd8"))
-        self.assertEqual(adjunto.tamano, len(bytes(adjunto.contenido)))
+        with adjunto.archivo.open("rb") as f:
+            contenido = f.read()
+        self.assertTrue(contenido.startswith(b"\xff\xd8"))
+        self.assertEqual(adjunto.tamano, len(contenido))
 
     def test_adjunta_varias_imagenes(self):
         self.entrar(self.u1)
@@ -204,7 +221,8 @@ class AdjuntosTests(BaseTicketsTest):
     def test_las_fotos_grandes_se_reducen(self):
         self.crear_con_imagen(imagenes=imagen("grande.jpg", tamano=(4000, 3000)))
         adjunto = AdjuntoTicket.objects.get()
-        ancho, alto = Image.open(BytesIO(bytes(adjunto.contenido))).size
+        with adjunto.archivo.open("rb") as f:
+            ancho, alto = Image.open(BytesIO(f.read())).size
         self.assertEqual(max(ancho, alto), 1600)
 
     def test_un_archivo_que_no_es_imagen_se_rechaza_y_no_crea_ticket(self):
@@ -554,6 +572,27 @@ class ConfirmacionEnLaAppTests(BaseTicketsTest):
         ticket.refresh_from_db()
         self.assertEqual(ticket.estado, Ticket.Estado.POR_CONFIRMAR)
 
+    def test_confirmar_dos_veces_no_reenvia_correos(self):
+        ticket = self.preparar()
+        self.entrar(self.u1)
+        url = reverse("responder_cierre", args=[ticket.pk])
+        self.post(url, {"accion": "confirmar"})
+        mail.outbox.clear()
+        r = self.post(url, {"accion": "confirmar"})
+        self.assertRedirects(r, reverse("detalle_ticket", args=[ticket.pk]))
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.estado, Ticket.Estado.CERRADO)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_rechazar_un_ticket_ya_cerrado_no_lo_reabre(self):
+        ticket = self.preparar()
+        self.entrar(self.u1)
+        url = reverse("responder_cierre", args=[ticket.pk])
+        self.post(url, {"accion": "confirmar"})
+        self.post(url, {"accion": "rechazar", "motivo": "Ya no"})
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.estado, Ticket.Estado.CERRADO)
+
     def test_responder_solo_por_post(self):
         ticket = self.preparar()
         self.entrar(self.u1)
@@ -875,3 +914,63 @@ class MisAsignadosTests(BaseTicketsTest):
             },
         )
         self.assertEqual(r.context["total"], 4)
+
+class PermisosPorSucursalTests(BaseTicketsTest):
+
+    def setUp(self):
+        super().setUp()
+        self.norte = Sucursal.objects.create(nombre="Norte")
+        self.enc_central = Usuario.objects.create_user(
+            "enc.c@t.com", "Encargado Central", PASSWORD, rol="ENCARGADO", sucursal=self.sucursal
+        )
+        self.bec_central = Usuario.objects.create_user(
+            "bec.c@t.com", "Becario Central", PASSWORD, rol="BECARIO", sucursal=self.sucursal
+        )
+        self.u_norte = Usuario.objects.create_user(
+            "un@t.com", "Usuario Norte", PASSWORD, area=self.area, sucursal=self.norte
+        )
+        self.ticket_central = self.crear_ticket(
+            autor=self.u1, titulo="Ticket de Central", sucursal=self.sucursal
+        )
+        self.ticket_norte = self.crear_ticket(
+            autor=self.u_norte, titulo="Ticket de Norte", sucursal=self.norte
+        )
+
+    def test_el_encargado_solo_ve_los_tickets_de_su_sucursal_en_la_lista(self):
+        self.entrar(self.enc_central)
+        r = self.client.get(reverse("lista_tickets"))
+        self.assertContains(r, "Ticket de Central")
+        self.assertNotContains(r, "Ticket de Norte")
+
+    def test_el_encargado_no_abre_el_detalle_de_otra_sucursal(self):
+        self.entrar(self.enc_central)
+        self.assertEqual(
+            self.client.get(reverse("detalle_ticket", args=[self.ticket_central.pk])).status_code, 200
+        )
+        self.assertEqual(
+            self.client.get(reverse("detalle_ticket", args=[self.ticket_norte.pk])).status_code, 404
+        )
+
+    def test_el_becario_no_toma_tickets_de_otra_sucursal(self):
+        self.entrar(self.bec_central)
+        r = self.post(reverse("tomar_ticket", args=[self.ticket_norte.pk]))
+        self.assertEqual(r.status_code, 404)
+        self.ticket_norte.refresh_from_db()
+        self.assertIsNone(self.ticket_norte.asignado_a_id)
+
+    def test_el_becario_si_toma_tickets_de_su_sucursal(self):
+        self.entrar(self.bec_central)
+        self.post(reverse("tomar_ticket", args=[self.ticket_central.pk]))
+        self.ticket_central.refresh_from_db()
+        self.assertEqual(self.ticket_central.asignado_a_id, self.bec_central.pk)
+
+    def test_el_superadmin_ve_todas_las_sucursales(self):
+        self.entrar(self.admin)
+        for ticket in (self.ticket_central, self.ticket_norte):
+            r = self.client.get(reverse("detalle_ticket", args=[ticket.pk]))
+            self.assertEqual(r.status_code, 200)
+
+    def test_el_usuario_no_ve_tickets_de_otras_personas(self):
+        self.entrar(self.u1)
+        r = self.client.get(reverse("detalle_ticket", args=[self.ticket_norte.pk]))
+        self.assertEqual(r.status_code, 404)

@@ -7,10 +7,11 @@ from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from django.db.models import Count, F, OuterRef, Q, Subquery
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from django.contrib.auth.decorators import login_required
@@ -42,6 +43,7 @@ from .forms import (
 from .models import FotoPerfil, PreferenciasUsuario, Usuario
 from .permisos import (
     puede_cambiar_password,
+    puede_ver_password,
     usuarios_gestionables as _usuarios_gestionables,
     usuarios_visibles,
 )
@@ -111,7 +113,6 @@ def olvide_password(request):
         cache.set(clave_ip, cache.get(clave_ip, 0) + 1, OLVIDE_ESPERA_SEGUNDOS)
 
         correo = request.POST.get("correo", "").strip()
-        tipo = "recordar" if request.POST.get("tipo") == "recordar" else "cambio"
         huella = hashlib.sha256(correo.lower().encode()).hexdigest()
         usuario = Usuario.objects.filter(correo__iexact=correo, activo=True).first()
         roles_permitidos = {
@@ -125,16 +126,12 @@ def olvide_password(request):
             and not usuario.is_superuser
             and cache.add(f"olvide-correo:{huella}", 1, OLVIDE_ESPERA_SEGUNDOS)
         ):
-            correos_password.correo_solicitud(usuario, tipo)
+            correos_password.correo_solicitud(usuario)
             registrar_evento(
                 Evento.Tipo.PASSWORD_SOLICITADO,
                 usuario,
                 afectado=usuario,
-                detalle=(
-                    "Solicitó que se le cambie la contraseña."
-                    if tipo == "cambio"
-                    else "Solicitó que se le recuerde la contraseña."
-                ),
+                detalle="Solicitó que se le cambie la contraseña.",
             )
         messages.success(
             request,
@@ -232,7 +229,7 @@ def lista_usuarios(request):
     )
     for u in pagina.object_list:
         u.puede_gestionar = u.pk in ids_gestionables
-        u.password_mostrada = u.password_visible
+        u.puede_ver_pass = bool(u.password_cifrada) and u.pk in ids_gestionables
     parametros = request.GET.copy()
     parametros.pop("page", None)
 
@@ -322,7 +319,7 @@ def editar_usuario(request, pk):
         "es_el_mismo": es_el_mismo,
         "sin_permiso_password": not es_el_mismo and not puede_password,
         "mostrar_password": ver_password,
-        "password_actual": usuario.password_visible if ver_password else "",
+        "hay_password": bool(usuario.password_visible) if ver_password else False,
     })
 
 
@@ -355,35 +352,25 @@ def cambiar_estado_usuario(request, pk):
         messages.success(request, f"Usuario «{usuario.nombre}» {estado}.")
     return redirect("lista_usuarios")
 
-@admin_required
+@never_cache
 @require_POST
-def enviar_correo_password(request, pk):
-    usuario = get_object_or_404(_usuarios_gestionables(request.user), pk=pk)
-    if not puede_cambiar_password(request.user, usuario):
-        messages.error(request, "No tienes permiso para enviar la contraseña de este usuario.")
-        return redirect("lista_usuarios")
-
-    if not usuario.password_visible:
-        messages.error(
-            request,
-            "Este usuario no tiene una contraseña disponible. Asígnale una nueva primero.",
+def revelar_password(request, pk):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Sesión expirada"}, status=401)
+    objetivo = Usuario.objects.filter(pk=pk).first()
+    if objetivo is None or not puede_ver_password(request.user, objetivo):
+        return JsonResponse({"error": "Sin permiso"}, status=403)
+    clave = objetivo.password_visible
+    if not clave:
+        return JsonResponse({"error": "No disponible"}, status=404)
+    if objetivo.pk != request.user.pk:
+        registrar_evento(
+            Evento.Tipo.PASSWORD_REVELADO,
+            request.user,
+            afectado=objetivo,
+            detalle=f"{request.user.nombre} mostró la contraseña de {objetivo.nombre}.",
         )
-        return redirect("editar_usuario", pk=usuario.pk)
-    enviado = correos_password.correo_recordatorio(usuario, request.user)
-    detalle = f"{request.user.nombre} envió por correo la contraseña a {usuario.nombre}."
-
-    if not enviado:
-        messages.error(request, "No se pudo enviar el correo.")
-        return redirect("editar_usuario", pk=usuario.pk)
-
-    registrar_evento(
-        Evento.Tipo.PASSWORD_ENVIADO,
-        request.user,
-        afectado=usuario,
-        detalle=detalle,
-    )
-    messages.success(request, f"Correo enviado a {usuario.correo}.")
-    return redirect("editar_usuario", pk=usuario.pk)
+    return JsonResponse({"password": clave})
 
 @login_required
 def mi_perfil(request):

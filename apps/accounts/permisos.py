@@ -67,4 +67,4 @@ def puede_ver_password(actor, objetivo):
         return False
     if actor.pk == objetivo.pk:
         return True
-    return usuarios_visibles(actor).filter(pk=objetivo.pk).exists()
+    return puede_cambiar_password(actor, objetivo)

@@ -30,16 +30,11 @@
     {% if mostrar_password %}
     <div class="mb-3">
         <label class="form-label">Contraseña actual</label>
-        {% if password_actual %}
+        {% if hay_password %}
         <div class="input-group">
-            <input type="text" id="passActual" class="form-control" value="********" data-valor="{{ password_actual }}" readonly autocomplete="off">
-            <button type="button" id="btnVerPass" class="btn btn-outline-secondary" title="Mostrar u ocultar"><i class="bi bi-eye"></i></button>
+            <input type="text" class="form-control pass-valor" value="••••••••" readonly autocomplete="off">
+            <button type="button" class="btn btn-outline-secondary" title="Mostrar" data-revelar-url="{% url 'revelar_password' form.instance.pk %}" data-csrf="{{ csrf_token }}"><i class="bi bi-eye"></i></button>
         </div>
-        {% if not es_el_mismo %}
-        <button type="submit" formaction="{% url 'enviar_correo_password' form.instance.pk %}" formnovalidate class="btn btn-outline-secondary btn-sm mt-2" data-confirmar="Se enviará la contraseña actual por correo. ¿Continuar?" data-confirmar-titulo="Enviar contraseña" data-confirmar-boton="Enviar">
-            <i class="bi bi-envelope-paper me-1"></i>Enviar su contraseña actual por correo
-        </button>
-        {% endif %}
         {% elif es_el_mismo %}
         <div class="form-text">No disponible.</div>
         {% else %}
@@ -62,19 +57,5 @@
     <button type="submit" class="btn btn-primary">Guardar</button>
     <a href="{% url 'lista_usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
 </form> 
-
-<script>
-    (function () {
-        var campo = document.getElementById("passActual");
-        var boton = document.getElementById("btnVerPass");
-        if (!campo || !boton) return;
-        var visible = false;
-        boton.addEventListener("click", function () {
-            visible = !visible;
-            campo.value = visible ? campo.dataset.valor : "********";
-            boton.firstElementChild.className = visible ? "bi bi-eye-slash" : "bi bi-eye";
-        });
-    })();
-</script>
 
 {% endblock %}

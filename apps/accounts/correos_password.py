@@ -7,7 +7,7 @@ from apps.tickets import emails as correos
 from .models import Usuario
 from .permisos import puede_cambiar_password
 
-CARPETA = "accounts/emails"
+CARPETA = "emails"
 
 
 def administradores_de(solicitante):
@@ -23,14 +23,13 @@ def _url_login():
     return settings.SITE_URL + reverse("login")
 
 
-def correo_solicitud(solicitante, tipo):
+def correo_solicitud(solicitante):
     mensajes = correos.construir(
         administradores_de(solicitante),
         f"Solicitud de contraseña: {solicitante.nombre}",
         "solicitud_password",
         {
             "solicitante": solicitante,
-            "tipo": tipo,
             "url_usuario": settings.SITE_URL
             + reverse("editar_usuario", args=[solicitante.pk]),
         },
@@ -54,19 +53,3 @@ def correo_cambio(usuario, administrador):
     )
     correos.enviar_tras_commit(mensajes)
     return bool(mensajes)
-
-
-def correo_recordatorio(usuario, administrador):
-    mensajes = correos.construir(
-        [usuario],
-        "Recordatorio de tu contraseña",
-        "password_recordatorio",
-        {
-            "usuario": usuario,
-            "administrador": administrador,
-            "password": usuario.password_visible,
-            "url_login": _url_login(),
-        },
-        carpeta=CARPETA,
-    )
-    return correos.enviar_directo(mensajes)

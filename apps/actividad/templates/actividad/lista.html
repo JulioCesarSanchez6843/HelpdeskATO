@@ -196,9 +196,9 @@
                         </td>
                         <td>
                             {% if e.ticket_id %}
-                                <a href="{% url 'detalle_ticket' e.ticket_id %}">#{{ e.ticket_numero }}</a>
+                                <a href="{% url 'detalle_ticket' e.ticket_id %}">TK-{{ e.ticket_numero|stringformat:"05d" }}</a>
                             {% elif e.ticket_numero %}
-                                #{{ e.ticket_numero }}
+                                TK-{{ e.ticket_numero|stringformat:"05d" }}
                             {% else %}
                                 —
                             {% endif %}

@@ -109,9 +109,9 @@ class EstadisticasYExcelTests(TestCase):
         self._ticket("nueva", self.sistemas, self.red)
         self.client.force_login(self.admin)
         desde = (timezone.localdate() - timedelta(days=5)).isoformat()
-        self.assertEqual(self.client.get(reverse("reportes"), {"desde": desde}).context["total"], 1)
+        self.assertEqual(self.client.get(reverse("reportes"), {"res_desde": desde}).context["total"], 1)
         # Una fecha mal escrita se ignora en lugar de romper la página.
-        r = self.client.get(reverse("reportes"), {"desde": "no-es-fecha", "hasta": "2026-99-99"})
+        r = self.client.get(reverse("reportes"), {"res_desde": "no-es-fecha", "res_hasta": "2026-99-99"})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.context["total"], 2)
 

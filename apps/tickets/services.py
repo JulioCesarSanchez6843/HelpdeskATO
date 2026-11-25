@@ -166,7 +166,7 @@ def registrar_creacion(ticket, autor):
     _notificar(
         admins,
         Notificacion.Tipo.NUEVO_TICKET,
-        f"Nuevo ticket #{ticket.pk}: {ticket.titulo}",
+        f"Nuevo ticket {ticket.folio}: {ticket.titulo}",
         ticket,
         autor,
     )
@@ -226,14 +226,14 @@ def _avisar_espera_a_encargados(ticket, actor, motivo):
     _notificar(
         encargados,
         Notificacion.Tipo.ESPERA_MATERIALES,
-        f"{actor.nombre} puso en espera de materiales el ticket #{ticket.pk}: {motivo}",
+        f"{actor.nombre} puso en espera de materiales el ticket {ticket.folio}: {motivo}",
         ticket,
         actor,
     )
     emails.enviar_tras_commit(
         emails.construir(
             _sin(encargados, actor),
-            f"Ticket #{ticket.pk} en espera de materiales",
+            f"Ticket {ticket.folio} en espera de materiales",
             "espera_materiales",
             _contexto(ticket, motivo=motivo, becario=actor),
         )
@@ -364,7 +364,7 @@ def confirmar_cierre(ticket, actor):
     _notificar(
         admins,
         Notificacion.Tipo.TICKET_CERRADO,
-        f"{actor.nombre} confirmó el cierre del ticket #{ticket.pk}.",
+        f"{actor.nombre} confirmó el cierre del ticket {ticket.folio}.",
         ticket,
         actor,
     )
@@ -372,13 +372,13 @@ def confirmar_cierre(ticket, actor):
     contexto = _contexto(ticket)
     mensajes = emails.construir(
         admins,
-        f"Ticket #{ticket.pk} cerrado: el usuario confirmó",
+        f"Ticket {ticket.folio} cerrado: el usuario confirmó",
         "cierre_confirmado_admin",
         contexto,
     )
     mensajes += emails.construir(
         [ticket.creado_por],
-        f"Tu ticket #{ticket.pk} quedó cerrado",
+        f"Tu ticket {ticket.folio} quedó cerrado",
         "ticket_cerrado",
         contexto,
     )
@@ -420,14 +420,14 @@ def rechazar_cierre(ticket, actor, motivo=""):
     _notificar(
         admins,
         Notificacion.Tipo.CIERRE_RECHAZADO,
-        f"{actor.nombre} indicó que el ticket #{ticket.pk} NO está resuelto.",
+        f"{actor.nombre} indicó que el ticket {ticket.folio} NO está resuelto.",
         ticket,
         actor,
     )
     emails.enviar_tras_commit(
         emails.construir(
             admins,
-            f"Ticket #{ticket.pk} reabierto: el usuario dice que no está resuelto",
+            f"Ticket {ticket.folio} reabierto: el usuario dice que no está resuelto",
             "cierre_rechazado_admin",
             _contexto(ticket, motivo=motivo),
         )
@@ -563,7 +563,7 @@ def tomar_ticket(ticket, actor):
         _notificar(
             _admins_activos(ticket),
             Notificacion.Tipo.TICKET_ASIGNADO,
-            f"{actor.nombre} tomó el ticket #{ticket.pk}: {ticket.titulo}",
+            f"{actor.nombre} tomó el ticket {ticket.folio}: {ticket.titulo}",
             ticket,
             actor,
         )
@@ -634,7 +634,7 @@ def escalar_ticket(ticket, actor, destino, motivo, prioridad):
     _notificar(
         [destino],
         Notificacion.Tipo.TICKET_ESCALADO,
-        f"{actor.nombre} te escaló el ticket #{ticket.pk}: {motivo}",
+        f"{actor.nombre} te escaló el ticket {ticket.folio}: {motivo}",
         ticket,
         actor,
     )
@@ -667,7 +667,7 @@ def asignar_ticket(ticket, actor, destino):
         _notificar(
             [destino],
             Notificacion.Tipo.TICKET_ASIGNADO,
-            f"{actor.nombre} te asignó el ticket #{ticket.pk}: {ticket.titulo}",
+            f"{actor.nombre} te asignó el ticket {ticket.folio}: {ticket.titulo}",
             ticket,
             actor,
         )
@@ -830,15 +830,15 @@ def avisar_sla(ticket, vencido):
     if vencido:
         campo = "sla_vencido_aviso_en"
         tipo = Notificacion.Tipo.SLA_VENCIDO
-        mensaje = f"El ticket #{ticket.pk} superó su tiempo de atención (SLA)."
-        asunto = f"Ticket #{ticket.pk}: SLA vencido"
+        mensaje = f"El ticket {ticket.folio} superó su tiempo de atención (SLA)."
+        asunto = f"Ticket {ticket.folio}: SLA vencido"
         plantilla = "sla_vencido"
     else:
         campo = "sla_aviso_en"
         tipo = Notificacion.Tipo.SLA_POR_VENCER
         limite = timezone.localtime(ticket.sla_vence_en).strftime("%d/%m/%Y %H:%M")
-        mensaje = f"El ticket #{ticket.pk} vence su SLA el {limite}."
-        asunto = f"Ticket #{ticket.pk}: el SLA está por vencer"
+        mensaje = f"El ticket {ticket.folio} vence su SLA el {limite}."
+        asunto = f"Ticket {ticket.folio}: el SLA está por vencer"
         plantilla = "sla_por_vencer"
 
     setattr(ticket, campo, timezone.now())

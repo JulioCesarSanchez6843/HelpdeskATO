@@ -85,7 +85,7 @@ def _aplicar_filtros(request, eventos):
     else:
         sucursal = ""
 
-    ticket = request.GET.get("ticket", "").strip().lstrip("#")
+    ticket = request.GET.get("ticket", "").strip().upper().removeprefix("TK-").lstrip("#")
     ticket_numero = entero_positivo(ticket)
     if ticket_numero is not None:
         eventos = eventos.filter(ticket_numero=ticket_numero)
