@@ -1,10 +1,12 @@
 import time
 
+from decouple import config
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 from django.utils import timezone
 
-from apps.tickets import cierre_automatico, emails, sla
+from apps.tickets import cierre_automatico, emails, respaldos, sla
+from apps.tickets.management.commands import respaldar
 
 
 class Command(BaseCommand):
@@ -62,6 +64,24 @@ class Command(BaseCommand):
         for error in resultado["errores"]:
             self.stderr.write(f"[{self.marca()}] {error}")
 
+    def tarea_respaldo(self):
+        if not config("BACKUP_ACTIVO", default=True, cast=bool):
+            return
+        hora = config("BACKUP_HORA", default="02:00")
+        if timezone.localtime().strftime("%H:%M") < hora:
+            return
+        opciones = respaldar.opciones_por_defecto()
+        if respaldos.hay_respaldo_de_hoy(opciones["destino"]):
+            return
+        avisos = respaldar.ejecutar(
+            **opciones,
+            incluir_env=config("BACKUP_INCLUIR_ENV", default=False, cast=bool),
+            origen="automatico",
+            log=lambda m: self.stdout.write(f"[{self.marca()}] {m}"),
+        )
+        for aviso in avisos:
+            self.stderr.write(f"[{self.marca()}] {aviso}")
+
     def handle(self, *args, **options):
         cada_correos = max(options["cada_correos"], 1)
         cada_cierre = max(options["cada_cierre"], 60)
@@ -76,6 +96,7 @@ class Command(BaseCommand):
         proxima_correos = 0.0
         proxima_cierre = 0.0
         proxima_sla = 0.0
+        proxima_respaldo = 0.0
 
         try:
             while True:
@@ -103,6 +124,13 @@ class Command(BaseCommand):
                         self.stderr.write(f"[{self.marca()}] Error en SLA: {error}")
                     proxima_sla = time.monotonic() + cada_sla
 
-                time.sleep(1)
+                if ahora >= proxima_respaldo:
+                    try:
+                        self.tarea_respaldo()
+                    except Exception as error:
+                        self.stderr.write(f"[{self.marca()}] Error en respaldo: {error}")
+                    proxima_respaldo = time.monotonic() + 600
+
+                time.sleep(1) 
         except KeyboardInterrupt:
             self.stdout.write("Detenido.")

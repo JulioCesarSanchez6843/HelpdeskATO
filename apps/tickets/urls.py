@@ -1,10 +1,24 @@
 from django.urls import path
 
-from . import views, views_configuracion
+from . import views, views_configuracion, views_respaldos
 
 
 urlpatterns = [
     path("", views.lista_tickets, name="lista_tickets"),
+
+    path("respaldos/", views_respaldos.lista_respaldos, name="lista_respaldos"),
+
+    path("respaldos/crear/", views_respaldos.crear_respaldo, name="crear_respaldo"),
+
+    path("respaldos/subir/", views_respaldos.subir_respaldo, name="subir_respaldo"),
+
+    path("respaldos/restaurar/<str:nombre>/", views_respaldos.restaurar_respaldo, name="restaurar_respaldo"),
+
+    path("respaldos/descargar/<str:nombre>/", views_respaldos.descargar_respaldo, name="descargar_respaldo"),
+
+    path("respaldos/api/", views_respaldos.api_lista, name="api_respaldos"),
+
+    path("respaldos/api/<str:nombre>/", views_respaldos.api_descargar, name="api_respaldo_descargar"),
 
     path("nuevo/", views.nuevo_ticket, name="nuevo_ticket"),
 

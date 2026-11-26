@@ -74,6 +74,7 @@
                     <li><a class="dropdown-item" href="{% url 'ajustes' %}"><i class="bi bi-gear me-2"></i>Ajustes</a></li>
                     {% if user.es_superadmin %}
                     <li><a class="dropdown-item" href="{% url 'configuracion_sistema' %}"><i class="bi bi-sliders me-2"></i>Parámetros del sistema</a></li>
+                    <li><a class="dropdown-item" href="{% url 'lista_respaldos' %}"><i class="bi bi-database-down me-2"></i>Respaldos</a></li>  
                     {% endif %}
                     {% if user.es_personal %}
                     <li><a class="dropdown-item" href="{% url 'lista_manuales' %}"><i class="bi bi-journal-bookmark me-2"></i>Manuales técnicos</a></li>

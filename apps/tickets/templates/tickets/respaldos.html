@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .zona-subida {
+        border: 2px dashed rgba(var(--tollocan-rgb), .45);
+        border-radius: 14px;
+        padding: 2.25rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        background: rgba(var(--tollocan-rgb), .04);
+        transition: background .15s, border-color .15s;
+    }
+    .zona-subida:hover,
+    .zona-subida.arrastrando {
+        background: rgba(var(--tollocan-rgb), .10);
+        border-color: var(--tollocan-rojo);
+    }
+    .zona-subida.con-archivo {
+        border-style: solid;
+        border-color: var(--tollocan-rojo);
+    }
+    .zona-subida .icono-subida {
+        font-size: 2.6rem;
+        color: var(--tollocan-rojo);
+    }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h3 class="mb-0">Respaldos</h3>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalInfo">
+            <i class="bi bi-info-circle me-1"></i>Información
+        </button>
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalSubir">
+            <i class="bi bi-cloud-upload me-1"></i>Subir respaldo
+        </button>
+        <form method="post" action="{% url 'crear_respaldo' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-database-add me-1"></i>Crear respaldo ahora
+            </button>
+        </form>
+    </div>
+</div>
+
+<form method="get" class="buscador">
+    <div class="buscador-fila">
+        <div class="buscador-campo">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre del archivo...">
+        </div>
+        <button type="button" class="buscador-toggle {% if panel_activo %}activo{% endif %}"
+                data-bs-toggle="collapse" data-bs-target="#panelFiltros"
+                aria-expanded="{% if panel_activo %}true{% else %}false{% endif %}" aria-controls="panelFiltros">
+            <i class="bi bi-sliders"></i>
+            <span class="buscador-texto">Filtros</span>
+            {% if panel_activo %}<span class="buscador-punto"></span>{% endif %}
+            <i class="bi bi-chevron-down buscador-flecha"></i>
+        </button>
+        <a href="?" class="buscador-limpiar {% if not hay_filtros %}oculto{% endif %}" title="Limpiar filtros">
+            <i class="bi bi-eraser"></i>
+        </a>
+    </div>
+
+    <div id="panelFiltros" class="collapse {% if panel_activo %}show{% endif %}">
+        <div class="buscador-panel">
+            <div>
+                <label>Origen</label>
+                <select name="origen" class="form-select {% if origen_sel %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    <option value="manual" {% if origen_sel == "manual" %}selected{% endif %}>Manual</option>
+                    <option value="automatico" {% if origen_sel == "automatico" %}selected{% endif %}>Automático</option>
+                    <option value="seguridad" {% if origen_sel == "seguridad" %}selected{% endif %}>Previo a restaurar</option>
+                </select>
+            </div>
+            <div>
+                <label>Ordenar por</label>
+                <select name="orden" class="form-select {% if orden != 'nuevos' %}activo{% endif %}" onchange="this.form.submit()">
+                    <option value="nuevos" {% if orden == "nuevos" %}selected{% endif %}>Más nuevos</option>
+                    <option value="antiguos" {% if orden == "antiguos" %}selected{% endif %}>Más antiguos</option>
+                    <option value="grandes" {% if orden == "grandes" %}selected{% endif %}>Mayor tamaño</option>
+                    <option value="chicos" {% if orden == "chicos" %}selected{% endif %}>Menor tamaño</option>
+                </select>
+            </div>
+            <div>
+                <label>Fecha del respaldo</label>
+                <input type="text" class="form-control rango-fechas" placeholder="Un día o un rango">
+                <input type="hidden" name="desde" value="{{ desde }}">
+                <input type="hidden" name="hasta" value="{{ hasta }}">
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        {{ respaldos|length }} de {{ total }} respaldo{{ total|pluralize }}
+    </div>
+    {% if respaldos %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Archivo</th>
+                    <th>Fecha</th>
+                    <th>Origen</th>
+                    <th>Tamaño</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in respaldos %}
+                <tr>
+                    <td>{{ r.nombre }}</td>
+                    <td>{{ r.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <span class="badge {% if r.origen == 'manual' %}bg-primary{% elif r.origen == 'automatico' %}bg-success{% elif r.origen == 'seguridad' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ r.origen_texto }}</span>
+                    </td>
+                    <td>{{ r.mb }} MB</td>
+                    <td class="text-end">
+                        <a href="{% url 'descargar_respaldo' r.nombre %}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-download me-1"></i>Descargar
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal" data-bs-target="#modalRestaurar"
+                                data-nombre="{{ r.nombre }}" data-url="{% url 'restaurar_respaldo' r.nombre %}">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Restaurar
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card-body text-center text-muted py-5">
+        {% if hay_filtros %}Ningún respaldo coincide con los filtros.{% else %}Todavía no hay respaldos. Pulsa "Crear respaldo ahora" o espera al automático de la noche.{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="modalInfo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-info-circle me-2"></i>Información de respaldos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row small mb-0">
+                    <dt class="col-sm-4">Carpeta principal</dt>
+                    <dd class="col-sm-8"><code class="text-break">{{ carpeta }}</code></dd>
+                    <dt class="col-sm-4">Copia en otra carpeta</dt>
+                    <dd class="col-sm-8">{% if copia %}<code class="text-break">{{ copia }}</code>{% else %}<span class="text-muted">No configurada</span>{% endif %}</dd>
+                    <dt class="col-sm-4">Respaldo automático</dt>
+                    <dd class="col-sm-8">{% if automatico %}Todos los días a partir de las {{ hora }} (requiere que <code>ejecutar_tareas</code> esté corriendo){% else %}<span class="text-muted">Desactivado</span>{% endif %}</dd>
+                    <dt class="col-sm-4">Conservación</dt>
+                    <dd class="col-sm-8">{{ diarios }} diarios, {{ semanales }} semanales y {{ mensuales }} mensuales</dd>
+                    <dt class="col-sm-4">Origen</dt>
+                    <dd class="col-sm-8 mb-0">
+                        <span class="badge bg-primary">Manual</span> creado con el botón.
+                        <span class="badge bg-success">Automático</span> creado por el servidor.
+                        <span class="badge bg-warning text-dark">Previo a restaurar</span> guardado antes de restaurar otro.
+                    </dd>
+                </dl>
+                <p class="text-muted small mb-0 mt-3">Incluyen la base de datos y todos los archivos: manuales, fotos, adjuntos y logos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalSubir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'subir_respaldo' %}" enctype="multipart/form-data" class="modal-content" id="formSubir">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cloud-upload me-2"></i>Subir respaldo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <label for="archivoRespaldo" class="zona-subida d-block mb-0" id="zonaSubida">
+                    <i class="bi bi-cloud-arrow-up icono-subida d-block mb-2"></i>
+                    <span class="fw-semibold d-block" id="textoZona">Arrastra el .zip aquí</span>
+                    <span class="text-muted small d-block" id="subtextoZona">o haz clic para elegirlo</span>
+                    <input type="file" name="archivo" id="archivoRespaldo" accept=".zip" class="d-none" required>
+                </label>
+                <div class="form-text mt-2">Se verifica que esté completo y sin alterar. Subirlo no cambia nada hasta que lo restaures.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="btnSubir" disabled>Subir</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="modalRestaurar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" class="modal-content" id="formRestaurar">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title">Restaurar respaldo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vas a restaurar <strong id="nombreRestaurar"></strong>.</p>
+                <div class="alert alert-danger small">
+                    Esto <strong>reemplaza toda la base de datos actual</strong> (usuarios, tickets, catálogos) y mezcla los archivos de media. Lo creado después de la fecha de ese respaldo se perderá. Antes de empezar se guarda automáticamente un respaldo del estado actual, y al terminar tendrás que iniciar sesión de nuevo.
+                </div>
+                <label for="confirmacion" class="form-label">Escribe <code>RESTAURAR</code> para confirmar</label>
+                <input type="text" name="confirmacion" id="confirmacion" class="form-control" autocomplete="off" required>
+                <div class="form-text">Puede tardar varios minutos. No cierres la página.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger" id="btnRestaurar" disabled>Restaurar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var modal = document.getElementById("modalRestaurar");
+        var form = document.getElementById("formRestaurar");
+        var campo = document.getElementById("confirmacion");
+        var boton = document.getElementById("btnRestaurar");
+        modal.addEventListener("show.bs.modal", function (e) {
+            form.action = e.relatedTarget.getAttribute("data-url");
+            document.getElementById("nombreRestaurar").textContent = e.relatedTarget.getAttribute("data-nombre");
+            campo.value = "";
+            boton.disabled = true;
+        });
+        campo.addEventListener("input", function () {
+            boton.disabled = campo.value.trim() !== "RESTAURAR";
+        });
+        form.addEventListener("submit", function () {
+            boton.disabled = true;
+            boton.textContent = "Restaurando...";
+        });
+    })();
+</script>
+
+<script>
+    (function () {
+        var zona = document.getElementById("zonaSubida");
+        var entrada = document.getElementById("archivoRespaldo");
+        var texto = document.getElementById("textoZona");
+        var subtexto = document.getElementById("subtextoZona");
+        var boton = document.getElementById("btnSubir");
+        var formulario = document.getElementById("formSubir");
+        var ventana = document.getElementById("modalSubir");
+
+        function mostrar() {
+            var archivo = entrada.files[0];
+            if (!archivo) {
+                zona.classList.remove("con-archivo");
+                texto.textContent = "Arrastra el .zip aquí";
+                subtexto.textContent = "o haz clic para elegirlo";
+                boton.disabled = true;
+                return;
+            }
+            zona.classList.add("con-archivo");
+            texto.textContent = archivo.name;
+            if (archivo.name.toLowerCase().endsWith(".zip")) {
+                subtexto.textContent = (archivo.size / 1024 / 1024).toFixed(2) + " MB";
+                boton.disabled = false;
+            } else {
+                subtexto.textContent = "El archivo debe ser un .zip";
+                boton.disabled = true;
+            }
+        }
+
+        entrada.addEventListener("change", mostrar);
+
+        ["dragenter", "dragover"].forEach(function (nombre) {
+            zona.addEventListener(nombre, function (e) {
+                e.preventDefault();
+                zona.classList.add("arrastrando");
+            });
+        });
+
+        zona.addEventListener("dragleave", function () {
+            zona.classList.remove("arrastrando");
+        });
+
+        zona.addEventListener("drop", function (e) {
+            e.preventDefault();
+            zona.classList.remove("arrastrando");
+            if (e.dataTransfer.files.length) {
+                var transferencia = new DataTransfer();
+                transferencia.items.add(e.dataTransfer.files[0]);
+                entrada.files = transferencia.files;
+                mostrar();
+            }
+        });
+
+        ventana.addEventListener("hidden.bs.modal", function () {
+            formulario.reset();
+            mostrar();
+        });
+
+        formulario.addEventListener("submit", function () {
+            boton.disabled = true;
+            boton.textContent = "Subiendo...";
+        });
+    })();
+</script>
+{% endblock %}
